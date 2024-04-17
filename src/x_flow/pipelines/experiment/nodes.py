@@ -71,3 +71,7 @@ def binarize_data(
         categorical_data.drop(columns=[target], inplace=True)
 
     return categorical_data, new_target_name
+
+
+def read_experiment_data(row: dict[str, Any], arg_) -> pd.DataFrame:
+    
