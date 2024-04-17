@@ -1,0 +1,3 @@
+experiments:
+  type: kedro_datasets.pandas.CSVDataset
+  filepath: data/config/experiments.csv
