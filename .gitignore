@@ -160,3 +160,6 @@ logs/
 
 # datarobotx
 datarobotx/
+
+
+*.lock

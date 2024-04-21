@@ -41,6 +41,12 @@ loggers:
 
   controller.app:
     level: INFO
+  datarobot:
+    level: INFO
+    handlers: [rich]
+  datarobot.models.project:
+    level: INFO
+    handlers: [rich]
 
 root:
   handlers: [rich, info_file_handler]

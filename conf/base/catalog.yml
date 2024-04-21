@@ -1,3 +1,19 @@
 experiments:
   type: kedro_datasets.pandas.CSVDataset
   filepath: data/config/experiments.csv
+
+param_mapping:
+  type: kedro_datasets.yaml.YAMLDataset
+  filepath: data/config/param_mapping.yml
+
+use_case_id:
+  type: kedro_datasets.text.TextDataset
+  filepath: data/config/use_case_id.txt
+
+dataset_id:
+  type: kedro_datasets.text.TextDataset
+  filepath: data/config/dataset_id.txt
+
+raw_data:
+  type: kedro_datasets.pandas.CSVDataset
+  filepath: include/x_flow/raw_data/DR_Demo_Bond_trading_RFQ.csv
