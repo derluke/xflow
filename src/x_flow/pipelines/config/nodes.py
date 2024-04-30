@@ -3,16 +3,19 @@ This is a boilerplate pipeline 'config'
 generated using Kedro 0.19.3
 """
 
-from typing import Dict, List
-import pandas as pd
 import logging
+from typing import Dict, List
+
+import numpy as np
+import pandas as pd
 
 log = logging.getLogger(__name__)
 
 
 def load_data(data: pd.DataFrame) -> List[Dict]:
     # replace any nan values with None
-    data_ = data.where(pd.notnull(data), None)
+    # data_ = data.where(pd.notnull(data), None)
+    data_ = data.replace({np.nan: None})
     records = data_.to_dict(orient="records")
     # replace any nan values with None
     return records
@@ -37,9 +40,9 @@ def decode_config(
                 if param_mapping[experiment_key] not in decoded_config:
                     decoded_config[param_mapping[experiment_key]] = {}
 
-                decoded_config[param_mapping[experiment_key]][
-                    experiment_key
-                ] = experiment_value
+                decoded_config[param_mapping[experiment_key]][experiment_key] = (
+                    experiment_value
+                )
         decoded_configs.append(decoded_config)
 
     log.info(f"Decoded config: {decoded_configs}")

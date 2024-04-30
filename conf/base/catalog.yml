@@ -17,3 +17,7 @@ dataset_id:
 raw_data:
   type: kedro_datasets.pandas.CSVDataset
   filepath: include/x_flow/raw_data/DR_Demo_Bond_trading_RFQ.csv
+
+autopilot_run:
+  type: kedro_datasets.text.TextDataset
+  filepath: include/x_flow/autopilot_run/autopilot_run.txt

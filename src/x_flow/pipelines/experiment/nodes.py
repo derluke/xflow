@@ -161,7 +161,7 @@ def get_or_create_dataset_from_df_with_lock(
         return get_or_create_dataset_from_df(
             token=token,
             endpoint=endpoint,
-            use_case_id=use_case_id,
+            use_cases=use_case_id,
             data_frame=df,
             name=name,
         )

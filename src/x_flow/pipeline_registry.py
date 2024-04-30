@@ -52,6 +52,7 @@ def register_pipelines() -> Dict[str, Pipeline]:
             # "params:experiment_config": "params:experiment_config",
             # "params:experiment_name": "params:experiment_name",
         },
+        # outputs="autopilot_run",
     )
 
     pipelines = {

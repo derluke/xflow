@@ -20,7 +20,7 @@ class XFlowApp(AbstractKedroBootApp):
             log.info(f"Experiment_name: {experiment_name}")
             log.info("=" * 80)
             log.info(f"experiment: {experiment}")
-            kedro_boot_session.run(
+            autopilot_run = kedro_boot_session.run(
                 namespace="experiment",
                 parameters={
                     "experiment_config": experiment,
@@ -33,6 +33,7 @@ class XFlowApp(AbstractKedroBootApp):
                     ],
                 },
             )
+            return {experiment_name: autopilot_run}
 
         results = Parallel(n_jobs=5, backend="threading")(
             delayed(run_experiment)(experiment) for experiment in experiments

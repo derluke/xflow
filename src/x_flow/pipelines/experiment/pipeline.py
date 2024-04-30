@@ -38,7 +38,8 @@ def create_pipeline(**kwargs) -> Pipeline:
                 name="binarize_data",
             ),
             node(
-                func=lambda use_case_name, binarize_data_config: f"{use_case_name}{'_'+str(binarize_data_config) if binarize_data_config.get('binarize_operator') else ''}",
+                func=lambda use_case_name,
+                binarize_data_config: f"{use_case_name}{'_'+str(binarize_data_config) if binarize_data_config.get('binarize_operator') else ''}",
                 inputs={
                     "use_case_name": "params:use_case_name",
                     "binarize_data_config": "params:experiment_config.binarize_data_config",
