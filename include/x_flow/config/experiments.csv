@@ -1,0 +1,9 @@
+experiment_name,target,binarize_operator,binarize_threshold,mode,worker_count,shap_only_mode,metric,datetime_partition_column,number_of_backtests
+simple,Mid,,,quick,-1,True,,date,5
+full,Mid,,,auto,-1,False,,date,5
+binarize_100,Mid,>,100,auto,-1,,,date,5
+binarize_100_quick,Mid,>,100,quick,-1,,,date,5
+binarize_150,Mid,>,150,auto,-1,,,date,5
+binarize_150_quick,Mid,>,150,quick,-1,,,date,5
+binarize_150_quick_auc,Mid,>,150,quick,-1,,AUC,date,5
+binarize_100_quick_auc,Mid,>,100,quick,-1,,AUC,date,5

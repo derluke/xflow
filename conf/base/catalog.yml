@@ -1,23 +1,45 @@
 experiments:
   type: kedro_datasets.pandas.CSVDataset
-  filepath: data/config/experiments.csv
+  filepath: include/x_flow/config/experiments.csv
 
 param_mapping:
   type: kedro_datasets.yaml.YAMLDataset
-  filepath: data/config/param_mapping.yml
+  filepath: include/x_flow/config/param_mapping.yml
 
 use_case_id:
   type: kedro_datasets.text.TextDataset
-  filepath: data/config/use_case_id.txt
+  filepath: data/outputs/use_case_id.txt
 
 dataset_id:
   type: kedro_datasets.text.TextDataset
-  filepath: data/config/dataset_id.txt
+  filepath: data/outputs/dataset_id.txt
 
-raw_data:
+raw_data_train:
   type: kedro_datasets.pandas.CSVDataset
-  filepath: include/x_flow/raw_data/DR_Demo_Bond_trading_RFQ.csv
+  filepath: include/x_flow/raw_data/DR_Demo_Bond_trading_RFQ_train.csv
+
+raw_data_test:
+  type: kedro_datasets.pandas.CSVDataset
+  filepath: include/x_flow/raw_data/DR_Demo_Bond_trading_RFQ_test.csv
 
 autopilot_run:
   type: kedro_datasets.text.TextDataset
   filepath: include/x_flow/autopilot_run/autopilot_run.txt
+
+experiment.backtests:
+  type: partitions.PartitionedDataset
+  path: data/outputs/${itertime_params:experiment_name}/backtests/
+  dataset: pandas.CSVDataset
+  filename_suffix: ".csv"
+
+experiment.holdouts:
+  type: partitions.PartitionedDataset
+  path: data/outputs/${itertime_params:experiment_name}/holdout/
+  dataset: pandas.CSVDataset
+  filename_suffix: ".csv"
+
+experiment.external_holdout:
+  type: partitions.PartitionedDataset
+  path: data/outputs/${itertime_params:experiment_name}/external_holdout/
+  dataset: pandas.CSVDataset
+  filename_suffix: ".csv"

@@ -30,7 +30,8 @@ def register_pipelines() -> Dict[str, Pipeline]:
         namespace="dr_experiment",
         inputs={
             # "use_case_name": "use_case_name",
-            "raw_data": "raw_data",
+            "raw_data_train": "raw_data_train",
+            "raw_data_test": "raw_data_test",
         },
         parameters={
             "params:credentials.datarobot.api_token": "params:credentials.datarobot.api_token",
@@ -43,7 +44,8 @@ def register_pipelines() -> Dict[str, Pipeline]:
         namespace="experiment",
         inputs={
             # "use_case_name": "use_case_name",
-            "raw_data": "raw_data",
+            "raw_data_train": "raw_data_train",
+            "raw_data_test": "raw_data_test",
         },
         parameters={
             "params:credentials.datarobot.api_token": "params:credentials.datarobot.api_token",

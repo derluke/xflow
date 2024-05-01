@@ -4,8 +4,8 @@ generated using Kedro 0.19.3
 """
 
 import logging
-import tempfile
-from typing import Any, Optional
+import os
+from typing import Any, Dict, Optional, Union
 
 # pyright: reportPrivateImportUsage=false
 import datarobot as dr
@@ -14,7 +14,14 @@ from datarobotx.idp.autopilot import get_or_create_autopilot_run
 from datarobotx.idp.common.hashing import get_hash
 from datarobotx.idp.datasets import get_or_create_dataset_from_df
 from filelock import FileLock
+from joblib import Parallel, delayed
 from pydantic import BaseModel, Field, field_validator
+from utils.dr_helpers import (
+    get_external_holdout_predictions,
+    get_models,
+    get_training_predictions,
+    wait_for_jobs,
+)
 
 log = logging.getLogger(__name__)
 
@@ -157,7 +164,9 @@ def get_or_create_dataset_from_df_with_lock(
 ) -> str:
     df_token = get_hash(df, use_case_id, name)
 
-    with FileLock(f"{df_token}.lock"):
+    with FileLock(
+        os.path.join(".locks", f"get_or_create_dataset_from_df_{df_token}.lock")
+    ):
         return get_or_create_dataset_from_df(
             token=token,
             endpoint=endpoint,
@@ -200,3 +209,128 @@ def run_autopilot(
             feature_settings_config=experiment_config.get("feature_settings", {}),
         )
     )
+
+
+def merge_predictions(
+    training_predictions: pd.DataFrame, training_data: pd.DataFrame
+) -> pd.DataFrame:
+    training_predictions = training_predictions.set_index("row_id")
+    return training_data.join(training_predictions, how="inner")
+
+
+def calculate_backtests(project_id: str, max_models_per_project: int = 5) -> bool:
+    project = dr.Project.get(project_id)
+    models = get_models(project)[:max_models_per_project]
+
+    def _calculate_backtest(model: dr.DatetimeModel):
+        try:
+            job = model.score_backtests()
+            job.wait_for_completion()
+        except dr.errors.ClientError as e:
+            if e.json["message"] in [
+                "All available backtests have already been scored.",
+                "This job duplicates a job or jobs that are in the queue or have completed.",
+            ]:
+                # log.info(f"Backtests already calculated for model {model.id}")
+                pass
+            else:
+                raise e
+
+    Parallel(n_jobs=10, backend="threading")(
+        delayed(_calculate_backtest)(model) for model in models
+    )
+    # wait for all jobs on the project to complete
+    jobs = project.get_all_jobs()
+    log.info("Waiting for backtesting jobs to complete")
+    wait_for_jobs(jobs)
+
+    return True
+
+
+def get_backtest_predictions(
+    project_id: str,
+    df: pd.DataFrame,
+    backtests_completed: bool,
+    data_subset: Optional[
+        Union[dr.enums.DATA_SUBSET, str]
+    ] = dr.enums.DATA_SUBSET.ALL_BACKTESTS,
+    max_models_per_project: int = 5,
+) -> Dict[str, pd.DataFrame]:
+    """
+    Get backtest predictions for a project.
+
+    Args:
+        project_id: Project ID.
+        df: Dataframe.
+        backtests_completed: Whether backtests have been completed.
+        data_subset: Data subset.
+        max_models_per_project: Maximum number of models per project.
+
+    Returns:
+        Dict[str, List[Dict[str, pd.DataFrame]]]: Backtest predictions.
+    """
+    if not backtests_completed:
+        raise ValueError("Backtests have not been completed")
+
+    project = dr.Project.get(project_id)
+    models = get_models(project)[:max_models_per_project]
+
+    def _get_backtest_predictions(
+        model: dr.Model, data_subset: dr.enums.DATA_SUBSET
+    ) -> Dict[str, pd.DataFrame]:
+        training_predictions = get_training_predictions(model, data_subset)
+        training_data = df.copy()
+        merged_predictions = merge_predictions(training_predictions, training_data)
+        backtest_dict = {
+            f"{model.id}/{partition_id}": df
+            for partition_id, df in merged_predictions.groupby("partition_id")
+        }
+        return backtest_dict
+
+    results = Parallel(n_jobs=10, backend="threading")(
+        delayed(_get_backtest_predictions)(model, data_subset) for model in models
+    )
+
+    return {f"{project.id}/{k}": df for row in results for k, df in row.items()}  # type: ignore
+
+
+def get_external_predictions(
+    project_id: str,
+    external_holdout: pd.DataFrame,
+    partition_column: Optional[str] = None,
+    max_models_per_project: int = 5,
+) -> Dict[str, pd.DataFrame]:
+    """
+    Get external predictions for a project.
+
+    Args:
+        project_id: Project ID.
+        external_holdout: External holdout dataframe.
+        max_models_per_project: Maximum number of models per project.
+
+    Returns:
+        Dict[str, List[Dict[str, pd.DataFrame]]]: External predictions.
+    """
+    project = dr.Project.get(project_id)
+    models = get_models(project)[:max_models_per_project]
+
+    def _get_external_predictions(
+        model: dr.Model, prediction_df: pd.DataFrame, partition_column: Optional[str]
+    ) -> Dict[str, pd.DataFrame]:
+
+        external_prediction_df = get_external_holdout_predictions(model, prediction_df)
+        merged_predictions = merge_predictions(external_prediction_df, prediction_df)
+        if partition_column not in merged_predictions.columns:
+            merged_predictions["partition_id"] = "external_holdout"
+        external_predictions_dict = {
+            f"{model.id}/{partition_id}": df
+            for partition_id, df in merged_predictions.groupby("partition_id")
+        }
+        return external_predictions_dict  # type: ignore
+
+    results = Parallel(n_jobs=10, backend="threading")(
+        delayed(_get_external_predictions)(model, external_holdout, partition_column)
+        for model in models
+    )
+
+    return {f"{project.id}/{k}": df for row in results for k, df in row.items()}  # type: ignore

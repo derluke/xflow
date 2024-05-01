@@ -38,7 +38,9 @@ loggers:
 
   x_flow:
     level: INFO
-
+  utils:
+    level: INFO
+    handlers: [rich]
   controller.app:
     level: INFO
   datarobot:
@@ -46,6 +48,9 @@ loggers:
     handlers: [rich]
   datarobot.models.project:
     level: INFO
+    handlers: [rich]
+  urllib3:
+    level: ERROR
     handlers: [rich]
 
 root:

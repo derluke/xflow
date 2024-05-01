@@ -163,3 +163,4 @@ datarobotx/
 
 
 *.lock
+*.pickle

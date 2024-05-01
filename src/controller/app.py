@@ -1,7 +1,9 @@
 import logging
+import pickle
+
+from joblib import Parallel, delayed
 from kedro_boot.app import AbstractKedroBootApp
 from kedro_boot.framework.session import KedroBootSession
-from joblib import Parallel, delayed
 
 log = logging.getLogger(__name__)
 
@@ -32,10 +34,22 @@ class XFlowApp(AbstractKedroBootApp):
                         "binarize_data"
                     ],
                 },
+                itertime_params={"experiment_name": experiment_name},
             )
-            return {experiment_name: autopilot_run}
+            return {
+                "experiment_name": experiment_name,
+                "project_id": autopilot_run,
+                "experiment_config": experiment,
+            }
 
-        results = Parallel(n_jobs=5, backend="threading")(
+        results = Parallel(n_jobs=10, backend="threading")(
             delayed(run_experiment)(experiment) for experiment in experiments
         )
-        log.info(f"results: {results}")
+        # log.info(f"results: {results}")
+
+        with open("all_output.pickle", "wb") as f:
+            pickle.dump(results, f)
+        # from x_flow.pipelines.measure.nodes import select_candidate_models
+
+        # candidate_models = select_candidate_models(results)
+        # log.info(f"candidate_models: {candidate_models}")
