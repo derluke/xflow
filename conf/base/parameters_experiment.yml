@@ -11,6 +11,8 @@ experiment:
     analyze_and_model:
       target: 
     binarize_data_config:
+    group_data:
+      groupby_column:
 
 
 dr_experiment:

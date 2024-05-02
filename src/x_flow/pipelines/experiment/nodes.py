@@ -5,7 +5,7 @@ generated using Kedro 0.19.3
 
 import logging
 import os
-from typing import Any, Dict, Optional, Union
+from typing import Any, Callable, Dict, Optional, Tuple, Union
 
 # pyright: reportPrivateImportUsage=false
 import datarobot as dr
@@ -22,6 +22,12 @@ from utils.dr_helpers import (
     get_training_predictions,
     wait_for_jobs,
 )
+
+import threading
+
+
+max_calls=10
+semaphore = threading.Semaphore(max_calls)
 
 log = logging.getLogger(__name__)
 
@@ -56,6 +62,15 @@ class Operator(BaseModel):
             {operation_mapping}
         """
         )
+    def apply_operation(self, threshold: float) -> Callable[[float], bool]:
+        return {
+            ">": lambda x: x > threshold,
+            "<": lambda x: x < threshold,
+            ">=": lambda x: x >= threshold,
+            "<=": lambda x: x <= threshold,
+            "==": lambda x: x == threshold,
+            "!=": lambda x: x != threshold,
+        }[self.operator]
 
 
 def unpack_row_to_args(
@@ -104,37 +119,34 @@ def binarize_data_if_specified(  # noqa: PLR0913
     categorical_data = input_data.copy()
     if binarize_operator is None:
         return input_data, target
-    op = Operator(operator=binarize_operator).operator
+    op_fun = Operator(operator=binarize_operator).apply_operation(binarize_threshold)
 
-    if op == ">":
-        categorical_data[binarize_new_target_name] = (
-            categorical_data[target] > binarize_threshold
-        )
-    elif op == "<":
-        categorical_data[binarize_new_target_name] = (
-            categorical_data[target] < binarize_threshold
-        )
-    elif op == ">=":
-        categorical_data[binarize_new_target_name] = (
-            categorical_data[target] >= binarize_threshold
-        )
-    elif op == "<=":
-        categorical_data[binarize_new_target_name] = (
-            categorical_data[target] <= binarize_threshold
-        )
-    elif op == "==":
-        categorical_data[binarize_new_target_name] = (
-            categorical_data[target] == binarize_threshold
-        )
-    elif op == "!=":
-        categorical_data[binarize_new_target_name] = (
-            categorical_data[target] != binarize_threshold
-        )
-    else:
-        categorical_data[binarize_new_target_name] = (
-            categorical_data[target] > binarize_threshold
-        )
-        log.warning("Unrecognised operation. Defaulting to >")
+    categorical_data[binarize_new_target_name] = categorical_data[target].apply(op_fun)
+    # match op:
+    #     case ">":
+    #         categorical_data[binarize_new_target_name] = (
+    #             categorical_data[target] > binarize_threshold
+    #         )
+    #     case "<":
+    #         categorical_data[binarize_new_target_name] = (
+    #             categorical_data[target] < binarize_threshold
+    #         )
+    #     case ">=":
+    #         categorical_data[binarize_new_target_name] = (
+    #             categorical_data[target] >= binarize_threshold
+    #         )
+    #     case "<=":
+    #         categorical_data[binarize_new_target_name] = (
+    #             categorical_data[target] <= binarize_threshold
+    #         )
+    #     case "==":
+    #         categorical_data[binarize_new_target_name] = (
+    #             categorical_data[target] == binarize_threshold
+    #         )
+    #     case "!=":
+    #         categorical_data[binarize_new_target_name] = (
+    #             categorical_data[target] != binarize_threshold
+    #         )
 
     if binarize_drop_regression_target:
         categorical_data.drop(columns=[target], inplace=True)
@@ -161,54 +173,136 @@ def get_or_create_dataset_from_df_with_lock(
     use_case_id: str,
     df: pd.DataFrame,
     name: str,
-) -> str:
-    df_token = get_hash(df, use_case_id, name)
+    group_data: Optional[dict] = None,
+) -> Tuple[Dict[str, str], Dict[str, pd.DataFrame]]:
+    # log.warning(f"Grouping data by {group_data['groupby_column']} for experiment {name}")
 
-    with FileLock(
-        os.path.join(".locks", f"get_or_create_dataset_from_df_{df_token}.lock")
-    ):
-        return get_or_create_dataset_from_df(
-            token=token,
-            endpoint=endpoint,
-            use_cases=use_case_id,
-            data_frame=df,
+    def _get_or_create_dataset_from_df_with_lock(
+        use_case_id: str,
+        df: pd.DataFrame,
+        name: str,
+        group: Optional[str] = None,
+
+    ) -> str:
+        
+        name = f"{name}_{group}" if (group != "__all_data__") else name
+        df_token = get_hash(df, use_case_id, name)
+
+        with FileLock(
+            os.path.join(".locks", f"get_or_create_dataset_from_df_{df_token}.lock")
+        ):
+            df_id = get_or_create_dataset_from_df(
+                token=token,
+                endpoint=endpoint,
+                use_cases=use_case_id,
+                data_frame=group_df,
+                name=name,
+            )
+        return df_id
+
+    if group_data is None or group_data["groupby_column"] is None:
+        df_dict = {"__all_data__": df}
+    else:
+        df_dict = {group: group_df for group, group_df in df.groupby(group_data["groupby_column"])}
+
+    jobs = []
+    for group, group_df in df_dict.items():
+        jobs.append(delayed(_get_or_create_dataset_from_df_with_lock)(
+            use_case_id=use_case_id,
+            df=group_df,
             name=name,
-        )
+            group=group,
+        ))
+    
+    results = Parallel(n_jobs=10, backend="threading")(
+        jobs
+    )
+
+    return_dict = {}
+    for group, result in zip(df_dict.keys(), results):
+        return_dict[group] = str(result)
+    
+    return return_dict, df_dict
 
 
 def run_autopilot(
     token: str,
     endpoint: str,
     target_name: str,
-    dataset_id: str,
+    dataset_dict: Dict[str, str],
     use_case_id: str,
     experiment_config: dict,
-) -> str:
+) -> Dict[str, str]:
     use_case = dr.UseCase.get(use_case_id)
-    dataset = dr.Dataset.get(dataset_id)
 
-    project_name = experiment_config.get(
-        "experiment_name", f"{use_case.name}:{target_name} [{dataset.name}]"
-    )
-    log.info(f"Experiment Config: {experiment_config}")
-    experiment_config["analyze_and_model"]["target"] = target_name
 
-    return str(
-        get_or_create_autopilot_run(
-            token=token,
-            endpoint=endpoint,
-            name=project_name,
-            use_case=use_case_id,
-            dataset_id=dataset_id,
-            advanced_options_config=experiment_config.get("advanced_options", {}),
-            analyze_and_model_config=experiment_config.get("analyze_and_model", {}),
-            create_from_dataset_config=experiment_config.get("create_from_dataset", {}),
-            datetime_partitioning_config=experiment_config.get(
-                "datetime_partitioning", {}
-            ),
-            feature_settings_config=experiment_config.get("feature_settings", {}),
+    def _get_or_create_autopilot_run(
+        name: str,
+        use_case: str,
+        dataset_id: str,
+        advanced_options_config: dict,
+        analyze_and_model_config: dict,
+        create_from_dataset_config: dict,
+        datetime_partitioning_config: dict,
+        feature_settings_config: dict,
+    ) -> Optional[str]:
+        try:
+            project_id = get_or_create_autopilot_run(
+                token=token,
+                endpoint=endpoint,
+                name=name,
+                use_case=use_case,
+                dataset_id=dataset_id,
+                advanced_options_config=advanced_options_config,
+                analyze_and_model_config=analyze_and_model_config,
+                create_from_dataset_config=create_from_dataset_config,
+                datetime_partitioning_config=datetime_partitioning_config,
+                feature_settings_config=feature_settings_config,
+            )
+            return project_id
+        except dr.errors.ClientError as e:
+            log.error(f"Error creating project: {e}")
+            return None
+    return_dict = {}
+
+    jobs = {}
+    for group, dataset_id in dataset_dict.items():
+        jobs[group] = []
+        dataset = dr.Dataset.get(dataset_id)
+
+        project_name = experiment_config.get(
+            "experiment_name", f"{use_case.name}:{target_name} [{dataset.name}]"
         )
+        if group != "__all_data__":
+            project_name = f"{project_name} ({group})"
+        log.info(f"Experiment Config: {experiment_config}")
+        experiment_config["analyze_and_model"]["target"] = target_name
+
+
+        jobs[group].append(delayed(
+            _get_or_create_autopilot_run)(
+                name=project_name,
+                use_case=use_case_id,
+                dataset_id=dataset_id,
+                advanced_options_config=experiment_config.get("advanced_options", {}),
+                analyze_and_model_config=experiment_config.get("analyze_and_model", {}),
+                create_from_dataset_config=experiment_config.get("create_from_dataset", {}),
+                datetime_partitioning_config=experiment_config.get(
+                    "datetime_partitioning", {}
+                ),
+                feature_settings_config=experiment_config.get("feature_settings", {}),
+            )
+        )
+    
+    results = Parallel(n_jobs=10, backend="threading")(
+        job for group in jobs.keys() for job in jobs[group]
     )
+    
+    for group, result in zip(jobs.keys(), results):
+        if result is not None:
+            return_dict[group] = str(result)
+    return return_dict
+    
 
 
 def merge_predictions(
@@ -218,29 +312,38 @@ def merge_predictions(
     return training_data.join(training_predictions, how="inner")
 
 
-def calculate_backtests(project_id: str, max_models_per_project: int = 5) -> bool:
-    project = dr.Project.get(project_id)
-    models = get_models(project)[:max_models_per_project]
-
+def calculate_backtests(project_dict: Dict[str,str], max_models_per_project: int = 5) -> bool:
+    
     def _calculate_backtest(model: dr.DatetimeModel):
-        try:
-            job = model.score_backtests()
-            job.wait_for_completion()
-        except dr.errors.ClientError as e:
-            if e.json["message"] in [
-                "All available backtests have already been scored.",
-                "This job duplicates a job or jobs that are in the queue or have completed.",
-            ]:
-                # log.info(f"Backtests already calculated for model {model.id}")
-                pass
-            else:
-                raise e
+        with semaphore:
+            try:
+                job = model.score_backtests()
+                job.wait_for_completion()
+            except dr.errors.ClientError as e:
+                if e.json["message"] in [
+                    "All available backtests have already been scored.",
+                    "This job duplicates a job or jobs that are in the queue or have completed.",
+                ]:
+                    # log.info(f"Backtests already calculated for model {model.id}")
+                    pass
+                else:
+                    raise e
 
+    all_models = []
+    for _, project_id in project_dict.items():
+        project = dr.Project.get(project_id)
+        models = get_models(project)[:max_models_per_project]
+        all_models.extend(models)
+        
     Parallel(n_jobs=10, backend="threading")(
-        delayed(_calculate_backtest)(model) for model in models
+        delayed(_calculate_backtest)(model) for model in all_models
     )
     # wait for all jobs on the project to complete
-    jobs = project.get_all_jobs()
+    jobs = []
+    for project_id in project_dict.values():
+        project = dr.Project.get(project_id)
+        jobs.extend(project.get_all_jobs())
+
     log.info("Waiting for backtesting jobs to complete")
     wait_for_jobs(jobs)
 
@@ -248,8 +351,8 @@ def calculate_backtests(project_id: str, max_models_per_project: int = 5) -> boo
 
 
 def get_backtest_predictions(
-    project_id: str,
-    df: pd.DataFrame,
+    project_dict: Dict[str,str],
+    df_dict: Dict[str, pd.DataFrame],
     backtests_completed: bool,
     data_subset: Optional[
         Union[dr.enums.DATA_SUBSET, str]
@@ -269,33 +372,41 @@ def get_backtest_predictions(
     Returns:
         Dict[str, List[Dict[str, pd.DataFrame]]]: Backtest predictions.
     """
+
+    def _get_backtest_predictions(
+            model: dr.Model, data_subset: dr.enums.DATA_SUBSET, group: str
+        ) -> Dict[str, pd.DataFrame]:
+            with semaphore:
+                training_predictions = get_training_predictions(model, data_subset)
+                training_data = df_dict[group].copy()
+                merged_predictions = merge_predictions(training_predictions, training_data)
+                backtest_dict = {
+                    f"{group}/{model.id}/{partition_id}": df
+                    for partition_id, df in merged_predictions.groupby("partition_id")
+                }
+                return backtest_dict
+            
+
     if not backtests_completed:
         raise ValueError("Backtests have not been completed")
 
-    project = dr.Project.get(project_id)
-    models = get_models(project)[:max_models_per_project]
 
-    def _get_backtest_predictions(
-        model: dr.Model, data_subset: dr.enums.DATA_SUBSET
-    ) -> Dict[str, pd.DataFrame]:
-        training_predictions = get_training_predictions(model, data_subset)
-        training_data = df.copy()
-        merged_predictions = merge_predictions(training_predictions, training_data)
-        backtest_dict = {
-            f"{model.id}/{partition_id}": df
-            for partition_id, df in merged_predictions.groupby("partition_id")
-        }
-        return backtest_dict
+    all_models = {}
+    for group, project_id in project_dict.items():
+        project = dr.Project.get(project_id)
+        models = get_models(project)[:max_models_per_project]
+        all_models[group] = models
+        
 
     results = Parallel(n_jobs=10, backend="threading")(
-        delayed(_get_backtest_predictions)(model, data_subset) for model in models
+        delayed(_get_backtest_predictions)(model, data_subset, group) for group in all_models.keys() for model in all_models[group]
     )
 
     return {f"{project.id}/{k}": df for row in results for k, df in row.items()}  # type: ignore
 
 
 def get_external_predictions(
-    project_id: str,
+    project_dict: Dict[str, str],
     external_holdout: pd.DataFrame,
     partition_column: Optional[str] = None,
     max_models_per_project: int = 5,
@@ -311,26 +422,32 @@ def get_external_predictions(
     Returns:
         Dict[str, List[Dict[str, pd.DataFrame]]]: External predictions.
     """
-    project = dr.Project.get(project_id)
-    models = get_models(project)[:max_models_per_project]
-
     def _get_external_predictions(
-        model: dr.Model, prediction_df: pd.DataFrame, partition_column: Optional[str]
+        model: dr.Model, prediction_df: pd.DataFrame, partition_column: Optional[str], group: str
     ) -> Dict[str, pd.DataFrame]:
+        with semaphore:
+            external_prediction_df = get_external_holdout_predictions(model, prediction_df)
+            merged_predictions = merge_predictions(external_prediction_df, prediction_df)
+            if partition_column not in merged_predictions.columns:
+                merged_predictions["partition_id"] = "external_holdout"
+            external_predictions_dict = {
+                f"{group}/{model.id}/{partition_id}": df
+                for partition_id, df in merged_predictions.groupby("partition_id")
+            }
+            return external_predictions_dict  # type: ignore
 
-        external_prediction_df = get_external_holdout_predictions(model, prediction_df)
-        merged_predictions = merge_predictions(external_prediction_df, prediction_df)
-        if partition_column not in merged_predictions.columns:
-            merged_predictions["partition_id"] = "external_holdout"
-        external_predictions_dict = {
-            f"{model.id}/{partition_id}": df
-            for partition_id, df in merged_predictions.groupby("partition_id")
-        }
-        return external_predictions_dict  # type: ignore
+    all_models = {}
+    for group, project_id in project_dict.items():
+        project = dr.Project.get(project_id)
+        models = get_models(project)[:max_models_per_project]
+        all_models[group] = models
+
+        
 
     results = Parallel(n_jobs=10, backend="threading")(
-        delayed(_get_external_predictions)(model, external_holdout, partition_column)
-        for model in models
+        delayed(_get_external_predictions)(model, external_holdout, partition_column, group)
+        for group in all_models.keys()
+        for model in all_models[group]
     )
 
     return {f"{project.id}/{k}": df for row in results for k, df in row.items()}  # type: ignore

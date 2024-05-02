@@ -2,6 +2,7 @@ kedro~=0.19.5
 kedro-datasets==2.1.0
 kedro-viz==8.0.1
 ruff==0.3.0
+toposort==1.10
 
 pytest==8.0.1
 pytest-cov==4.1.0

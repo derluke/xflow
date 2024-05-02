@@ -1,1 +1,1 @@
-{"experiments": {"rows": 5, "columns": 8, "file_size": 262}, "raw_data": {"rows": 20000, "columns": 33, "file_size": 6155476}, "experiment.data_binarized": {"rows": 20000, "columns": 33}}
+{"experiments": {"rows": 9, "columns": 11, "file_size": 559}, "raw_data_train": {"rows": 20000, "columns": 34, "file_size": 6259796}, "experiment.data_binarized": {"rows": 20000, "columns": 34}, "raw_data_test": {"rows": 6803, "columns": 34, "file_size": 2129599}}

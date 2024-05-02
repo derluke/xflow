@@ -33,8 +33,10 @@ class XFlowApp(AbstractKedroBootApp):
                     "experiment_config.binarize_data_config": experiment[
                         "binarize_data"
                     ],
+                    "experiment_config.group_data": experiment["group_data"],
                 },
                 itertime_params={"experiment_name": experiment_name},
+                   
             )
             return {
                 "experiment_name": experiment_name,

@@ -52,24 +52,24 @@ def generalized_f1(
             binarize_threshold = experiment_config.get("binarize_threshold")
 
         # binarize predictions
-        operator = Operator(operator=binarize_operator).operator
-
-        match operator:
-            case ">":
-                binarized_predictions = predictions > binarize_threshold
-            case "<":
-                binarized_predictions = predictions < binarize_threshold
-            case ">=":
-                binarized_predictions = predictions >= binarize_threshold
-            case "<=":
-                binarized_predictions = predictions <= binarize_threshold
-            case "==":
-                binarized_predictions = predictions == binarize_threshold
-            case "!=":
-                binarized_predictions = predictions != binarize_threshold
-            case _:
-                binarized_predictions = predictions > binarize_threshold
-                log.warning("Unrecognised operation. Defaulting to >")
+        op_fun = operator = Operator(operator=binarize_operator).apply_operation(binarize_threshold)
+        binarized_predictions = op_fun(predictions)
+        # match operator:
+        #     case ">":
+        #         binarized_predictions = predictions > binarize_threshold
+        #     case "<":
+        #         binarized_predictions = predictions < binarize_threshold
+        #     case ">=":
+        #         binarized_predictions = predictions >= binarize_threshold
+        #     case "<=":
+        #         binarized_predictions = predictions <= binarize_threshold
+        #     case "==":
+        #         binarized_predictions = predictions == binarize_threshold
+        #     case "!=":
+        #         binarized_predictions = predictions != binarize_threshold
+        #     case _:
+        #         binarized_predictions = predictions > binarize_threshold
+        #         log.warning("Unrecognised operation. Defaulting to >")
     log.info(f"binarized_predictions: {binarized_predictions}")
     # ensure actuals are boolean
     actuals = actuals.astype(bool)

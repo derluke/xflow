@@ -52,8 +52,9 @@ def create_pipeline(**kwargs) -> Pipeline:
                     "use_case_id": "use_case_id",
                     "df": "data_binarized",
                     "name": "dataset_name",
+                    "group_data": "params:experiment_config.group_data",
                 },
-                outputs="experiment_dataset_id",
+                outputs=["experiment_dataset_dict","df_dict"],
                 name="get_or_create_dataset_from_df_with_lock",
             ),
             node(
@@ -63,37 +64,38 @@ def create_pipeline(**kwargs) -> Pipeline:
                     "endpoint": "params:credentials.datarobot.endpoint",
                     "target_name": "target_binarized",
                     "use_case_id": "use_case_id",
-                    "dataset_id": "experiment_dataset_id",
+                    "dataset_dict": "experiment_dataset_dict",
                     "experiment_config": "params:experiment_config",
                 },
-                outputs="autopilot_run",
-                name="get_or_create_autopilot_run",
+                outputs="project_dict",
+                name="get_or_create_project_dict",
             ),
             node(
                 func=calculate_backtests,
                 inputs={
-                    "project_id": "autopilot_run",
+                    "project_dict": "project_dict",
                 },
                 outputs="backtests_completed",
                 name="calculate_backtests",
+                tags=["checkpoint"],
             ),
             node(
                 func=get_backtest_predictions,
                 inputs={
-                    "project_id": "autopilot_run",
-                    "df": "raw_data_train",
+                    "project_dict": "project_dict",
+                    "df_dict": "df_dict",
                     "backtests_completed": "backtests_completed",
                 },
                 outputs="backtests",
                 name="get_backtest_predictions",
             ),
             node(
-                func=lambda project_id, df, backtests_completed: get_backtest_predictions(
-                    project_id, df, backtests_completed, data_subset="holdout"
+                func=lambda project_dict, df_dict, backtests_completed: get_backtest_predictions(
+                    project_dict, df_dict, backtests_completed, data_subset="holdout"
                 ),
                 inputs={
-                    "project_id": "autopilot_run",
-                    "df": "raw_data_train",
+                    "project_dict": "project_dict",
+                    "df_dict": "df_dict",
                     "backtests_completed": "backtests_completed",
                 },
                 outputs="holdouts",
@@ -102,7 +104,7 @@ def create_pipeline(**kwargs) -> Pipeline:
             node(
                 func=get_external_predictions,
                 inputs={
-                    "project_id": "autopilot_run",
+                    "project_dict": "project_dict",
                     "external_holdout": "raw_data_test",
                 },
                 outputs="external_holdout",

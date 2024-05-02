@@ -43,3 +43,7 @@ experiment.external_holdout:
   path: data/outputs/${itertime_params:experiment_name}/external_holdout/
   dataset: pandas.CSVDataset
   filename_suffix: ".csv"
+
+"{node}_checksum":
+  type: kedro_datasets.text.TextDataset
+  filepath: data/outputs/checksums/${itertime_params:experiment_name}/{node}.txt
