@@ -22,7 +22,7 @@ class XFlowApp(AbstractKedroBootApp):
             log.info(f"Experiment_name: {experiment_name}")
             log.info("=" * 80)
             log.info(f"experiment: {experiment}")
-            autopilot_run = kedro_boot_session.run(
+            output_dict = kedro_boot_session.run(
                 namespace="experiment",
                 parameters={
                     "experiment_config": experiment,
@@ -36,21 +36,51 @@ class XFlowApp(AbstractKedroBootApp):
                     "experiment_config.group_data": experiment["group_data"],
                 },
                 itertime_params={"experiment_name": experiment_name},
-                   
             )
             return {
                 "experiment_name": experiment_name,
-                "project_id": autopilot_run,
+                "project_id": output_dict,
                 "experiment_config": experiment,
             }
 
         results = Parallel(n_jobs=10, backend="threading")(
             delayed(run_experiment)(experiment) for experiment in experiments
         )
+
+        log.info(f"results: {results}")
+
+        # with open("all_output.pickle", "wb") as f:
+        #     pickle.dump(results, f)
+
+        # with open("all_output.pickle", "rb") as f:
+        #     results = pickle.load(f)
         # log.info(f"results: {results}")
 
-        with open("all_output.pickle", "wb") as f:
-            pickle.dump(results, f)
+        def run_measure(experiment):
+            experiment_name = experiment["experiment_name"]
+            log.info(f"Experiment_name: {experiment_name}")
+            log.info("=" * 80)
+            log.info(f"experiment: {experiment}")
+            output_dict = kedro_boot_session.run(
+                namespace="measure",
+                parameters={
+                    "experiment_name": experiment_name,
+                    "experiment_config": experiment,
+                    # "metrics": experiment["metrics"],
+                },
+                # inputs={"measure.project_dict": experiment["project_id"]},
+                itertime_params={"experiment_name": experiment_name},
+            )
+            return {
+                "experiment_name": experiment_name,
+                "output_dict": output_dict,
+                "experiment_config": experiment,
+            }
+
+        measure_results = Parallel(n_jobs=10, backend="threading")(
+            delayed(run_measure)(experiment) for experiment in experiments
+        )
+        log.info(f"measure_results: {measure_results}")
         # from x_flow.pipelines.measure.nodes import select_candidate_models
 
         # candidate_models = select_candidate_models(results)

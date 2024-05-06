@@ -38,39 +38,28 @@ def generalized_f1(
     binarize_threshold = experiment_config.get("binarize_data", {}).get(
         "binarize_threshold"
     )
+    # log.warning(f"binarize_operator: {binarize_operator}")
+    # log.warning(f"binarize_threshold: {binarize_threshold}")
+
     if binarize_operator and binarize_threshold:
         binarized_predictions = predictions
     else:
-        if metric_config and "binarize_operator" in metric_config:
-            binarize_operator = metric_config["binarize_operator"]
-        else:
-            raise ValueError("binarize_operator is required")
+        if not metric_config or "binarize_data_config" not in metric_config:
+            raise ValueError("metric_config is required")
 
-        if metric_config and "binarize_threshold" in metric_config:
-            binarize_threshold = metric_config["binarize_threshold"]
-        else:
-            binarize_threshold = experiment_config.get("binarize_threshold")
-
-        # binarize predictions
-        op_fun = operator = Operator(operator=binarize_operator).apply_operation(binarize_threshold)
+        binarize_operator = metric_config["binarize_data_config"].get("operator", None)
+        binarize_threshold = metric_config["binarize_data_config"].get(
+            "threshold", None
+        )
+        # log.warning(f"{metric_config}")
+        # log.warning(f"binarize_operator: {binarize_operator}")
+        # log.warning(f"binarize_threshold: {binarize_threshold}")
+        op_fun = Operator(operator=binarize_operator).apply_operation(
+            binarize_threshold
+        )
         binarized_predictions = op_fun(predictions)
-        # match operator:
-        #     case ">":
-        #         binarized_predictions = predictions > binarize_threshold
-        #     case "<":
-        #         binarized_predictions = predictions < binarize_threshold
-        #     case ">=":
-        #         binarized_predictions = predictions >= binarize_threshold
-        #     case "<=":
-        #         binarized_predictions = predictions <= binarize_threshold
-        #     case "==":
-        #         binarized_predictions = predictions == binarize_threshold
-        #     case "!=":
-        #         binarized_predictions = predictions != binarize_threshold
-        #     case _:
-        #         binarized_predictions = predictions > binarize_threshold
-        #         log.warning("Unrecognised operation. Defaulting to >")
-    log.info(f"binarized_predictions: {binarized_predictions}")
+
+    # log.info(f"binarized_predictions: {binarized_predictions}")
     # ensure actuals are boolean
     actuals = actuals.astype(bool)
     binarized_predictions = binarized_predictions.astype(bool)

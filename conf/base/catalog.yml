@@ -44,6 +44,27 @@ experiment.external_holdout:
   dataset: pandas.CSVDataset
   filename_suffix: ".csv"
 
-"{node}_checksum":
+experiment.backtests_grouped:
+  type: partitions.PartitionedDataset
+  path: data/outputs/grouped/backtests/
+  dataset: pandas.CSVDataset
+  filename_suffix: ".csv"
+
+# experiment.project_dict:
+#   type: partitions.PartitionedDataset
+#   path: data/outputs/${itertime_params:experiment_name}/project_dict/
+#   dataset: pickle.PickleDataset
+#   filename_suffix: ".pkl"
+
+experiment.target_binarized:
+  type: kedro_datasets.text.TextDataset
+  filepath: data/outputs/${itertime_params:experiment_name}/target_binarized.txt
+
+measure.holdout_metrics:
+  type: kedro_datasets.pandas.CSVDataset
+  filepath: data/outputs/${itertime_params:experiment_name}/metrics/holdout_metrics.csv
+
+
+"{node}_checksum": 
   type: kedro_datasets.text.TextDataset
   filepath: data/outputs/checksums/${itertime_params:experiment_name}/{node}.txt

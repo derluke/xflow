@@ -5,6 +5,7 @@ generated using Kedro 0.19.3
 
 import logging
 import os
+import threading
 from typing import Any, Callable, Dict, Optional, Tuple, Union
 
 # pyright: reportPrivateImportUsage=false
@@ -23,10 +24,7 @@ from utils.dr_helpers import (
     wait_for_jobs,
 )
 
-import threading
-
-
-max_calls=10
+max_calls = 20
 semaphore = threading.Semaphore(max_calls)
 
 log = logging.getLogger(__name__)
@@ -62,6 +60,7 @@ class Operator(BaseModel):
             {operation_mapping}
         """
         )
+
     def apply_operation(self, threshold: float) -> Callable[[float], bool]:
         return {
             ">": lambda x: x > threshold,
@@ -122,32 +121,6 @@ def binarize_data_if_specified(  # noqa: PLR0913
     op_fun = Operator(operator=binarize_operator).apply_operation(binarize_threshold)
 
     categorical_data[binarize_new_target_name] = categorical_data[target].apply(op_fun)
-    # match op:
-    #     case ">":
-    #         categorical_data[binarize_new_target_name] = (
-    #             categorical_data[target] > binarize_threshold
-    #         )
-    #     case "<":
-    #         categorical_data[binarize_new_target_name] = (
-    #             categorical_data[target] < binarize_threshold
-    #         )
-    #     case ">=":
-    #         categorical_data[binarize_new_target_name] = (
-    #             categorical_data[target] >= binarize_threshold
-    #         )
-    #     case "<=":
-    #         categorical_data[binarize_new_target_name] = (
-    #             categorical_data[target] <= binarize_threshold
-    #         )
-    #     case "==":
-    #         categorical_data[binarize_new_target_name] = (
-    #             categorical_data[target] == binarize_threshold
-    #         )
-    #     case "!=":
-    #         categorical_data[binarize_new_target_name] = (
-    #             categorical_data[target] != binarize_threshold
-    #         )
-
     if binarize_drop_regression_target:
         categorical_data.drop(columns=[target], inplace=True)
 
@@ -157,9 +130,7 @@ def binarize_data_if_specified(  # noqa: PLR0913
 def binarize_data_node(
     input_data: pd.DataFrame, target: str, binarize_data_config: dict
 ) -> tuple[pd.DataFrame, str]:
-    # log.info(f"input_data: {input_data}")
-    log.info(f"target: {target}")
-    log.info(f"binarize_data_config: {binarize_data_config}")
+
     return binarize_data_if_specified(
         input_data=input_data,
         target=target,
@@ -182,9 +153,8 @@ def get_or_create_dataset_from_df_with_lock(
         df: pd.DataFrame,
         name: str,
         group: Optional[str] = None,
-
     ) -> str:
-        
+
         name = f"{name}_{group}" if (group != "__all_data__") else name
         df_token = get_hash(df, use_case_id, name)
 
@@ -203,25 +173,28 @@ def get_or_create_dataset_from_df_with_lock(
     if group_data is None or group_data["groupby_column"] is None:
         df_dict = {"__all_data__": df}
     else:
-        df_dict = {group: group_df for group, group_df in df.groupby(group_data["groupby_column"])}
+        df_dict = {
+            group: group_df
+            for group, group_df in df.groupby(group_data["groupby_column"])
+        }
 
     jobs = []
     for group, group_df in df_dict.items():
-        jobs.append(delayed(_get_or_create_dataset_from_df_with_lock)(
-            use_case_id=use_case_id,
-            df=group_df,
-            name=name,
-            group=group,
-        ))
-    
-    results = Parallel(n_jobs=10, backend="threading")(
-        jobs
-    )
+        jobs.append(
+            delayed(_get_or_create_dataset_from_df_with_lock)(
+                use_case_id=use_case_id,
+                df=group_df,
+                name=name,
+                group=group,
+            )
+        )
+
+    results = Parallel(n_jobs=10, backend="threading")(jobs)
 
     return_dict = {}
     for group, result in zip(df_dict.keys(), results):
         return_dict[group] = str(result)
-    
+
     return return_dict, df_dict
 
 
@@ -234,7 +207,6 @@ def run_autopilot(
     experiment_config: dict,
 ) -> Dict[str, str]:
     use_case = dr.UseCase.get(use_case_id)
-
 
     def _get_or_create_autopilot_run(
         name: str,
@@ -263,6 +235,7 @@ def run_autopilot(
         except dr.errors.ClientError as e:
             log.error(f"Error creating project: {e}")
             return None
+
     return_dict = {}
 
     jobs = {}
@@ -278,31 +251,31 @@ def run_autopilot(
         log.info(f"Experiment Config: {experiment_config}")
         experiment_config["analyze_and_model"]["target"] = target_name
 
-
-        jobs[group].append(delayed(
-            _get_or_create_autopilot_run)(
+        jobs[group].append(
+            delayed(_get_or_create_autopilot_run)(
                 name=project_name,
                 use_case=use_case_id,
                 dataset_id=dataset_id,
                 advanced_options_config=experiment_config.get("advanced_options", {}),
                 analyze_and_model_config=experiment_config.get("analyze_and_model", {}),
-                create_from_dataset_config=experiment_config.get("create_from_dataset", {}),
+                create_from_dataset_config=experiment_config.get(
+                    "create_from_dataset", {}
+                ),
                 datetime_partitioning_config=experiment_config.get(
                     "datetime_partitioning", {}
                 ),
                 feature_settings_config=experiment_config.get("feature_settings", {}),
             )
         )
-    
+
     results = Parallel(n_jobs=10, backend="threading")(
         job for group in jobs.keys() for job in jobs[group]
     )
-    
+
     for group, result in zip(jobs.keys(), results):
         if result is not None:
             return_dict[group] = str(result)
     return return_dict
-    
 
 
 def merge_predictions(
@@ -312,8 +285,10 @@ def merge_predictions(
     return training_data.join(training_predictions, how="inner")
 
 
-def calculate_backtests(project_dict: Dict[str,str], max_models_per_project: int = 5) -> bool:
-    
+def calculate_backtests(
+    project_dict: Dict[str, str], max_models_per_project: int = 5
+) -> bool:
+
     def _calculate_backtest(model: dr.DatetimeModel):
         with semaphore:
             try:
@@ -334,7 +309,7 @@ def calculate_backtests(project_dict: Dict[str,str], max_models_per_project: int
         project = dr.Project.get(project_id)
         models = get_models(project)[:max_models_per_project]
         all_models.extend(models)
-        
+
     Parallel(n_jobs=10, backend="threading")(
         delayed(_calculate_backtest)(model) for model in all_models
     )
@@ -351,7 +326,7 @@ def calculate_backtests(project_dict: Dict[str,str], max_models_per_project: int
 
 
 def get_backtest_predictions(
-    project_dict: Dict[str,str],
+    project_dict: Dict[str, str],
     df_dict: Dict[str, pd.DataFrame],
     backtests_completed: bool,
     data_subset: Optional[
@@ -374,32 +349,31 @@ def get_backtest_predictions(
     """
 
     def _get_backtest_predictions(
-            model: dr.Model, data_subset: dr.enums.DATA_SUBSET, group: str
-        ) -> Dict[str, pd.DataFrame]:
-            with semaphore:
-                training_predictions = get_training_predictions(model, data_subset)
-                training_data = df_dict[group].copy()
-                merged_predictions = merge_predictions(training_predictions, training_data)
-                backtest_dict = {
-                    f"{group}/{model.id}/{partition_id}": df
-                    for partition_id, df in merged_predictions.groupby("partition_id")
-                }
-                return backtest_dict
-            
+        model: dr.Model, data_subset: dr.enums.DATA_SUBSET, group: str
+    ) -> Dict[str, pd.DataFrame]:
+        with semaphore:
+            training_predictions = get_training_predictions(model, data_subset)
+            training_data = df_dict[group].copy()
+            merged_predictions = merge_predictions(training_predictions, training_data)
+            backtest_dict = {
+                f"{group}/{model.id}/{partition_id}": df
+                for partition_id, df in merged_predictions.groupby("partition_id")
+            }
+            return backtest_dict
 
     if not backtests_completed:
         raise ValueError("Backtests have not been completed")
-
 
     all_models = {}
     for group, project_id in project_dict.items():
         project = dr.Project.get(project_id)
         models = get_models(project)[:max_models_per_project]
         all_models[group] = models
-        
 
     results = Parallel(n_jobs=10, backend="threading")(
-        delayed(_get_backtest_predictions)(model, data_subset, group) for group in all_models.keys() for model in all_models[group]
+        delayed(_get_backtest_predictions)(model, data_subset, group)
+        for group in all_models.keys()
+        for model in all_models[group]
     )
 
     return {f"{project.id}/{k}": df for row in results for k, df in row.items()}  # type: ignore
@@ -410,6 +384,7 @@ def get_external_predictions(
     external_holdout: pd.DataFrame,
     partition_column: Optional[str] = None,
     max_models_per_project: int = 5,
+    group_data: Optional[dict] = None,
 ) -> Dict[str, pd.DataFrame]:
     """
     Get external predictions for a project.
@@ -422,12 +397,20 @@ def get_external_predictions(
     Returns:
         Dict[str, List[Dict[str, pd.DataFrame]]]: External predictions.
     """
+
     def _get_external_predictions(
-        model: dr.Model, prediction_df: pd.DataFrame, partition_column: Optional[str], group: str
+        model: dr.Model,
+        prediction_df: pd.DataFrame,
+        partition_column: Optional[str],
+        group: str,
     ) -> Dict[str, pd.DataFrame]:
         with semaphore:
-            external_prediction_df = get_external_holdout_predictions(model, prediction_df)
-            merged_predictions = merge_predictions(external_prediction_df, prediction_df)
+            external_prediction_df = get_external_holdout_predictions(
+                model, prediction_df
+            )
+            merged_predictions = merge_predictions(
+                external_prediction_df, prediction_df
+            )
             if partition_column not in merged_predictions.columns:
                 merged_predictions["partition_id"] = "external_holdout"
             external_predictions_dict = {
@@ -436,16 +419,26 @@ def get_external_predictions(
             }
             return external_predictions_dict  # type: ignore
 
+    if group_data is None or group_data["groupby_column"] is None:
+        df_dict = {"__all_data__": external_holdout}
+    else:
+        df_dict = {
+            group: group_df
+            for group, group_df in external_holdout.groupby(
+                group_data["groupby_column"]
+            )
+        }
+
     all_models = {}
     for group, project_id in project_dict.items():
         project = dr.Project.get(project_id)
         models = get_models(project)[:max_models_per_project]
         all_models[group] = models
 
-        
-
     results = Parallel(n_jobs=10, backend="threading")(
-        delayed(_get_external_predictions)(model, external_holdout, partition_column, group)
+        delayed(_get_external_predictions)(
+            model, df_dict[group], partition_column, group
+        )
         for group in all_models.keys()
         for model in all_models[group]
     )

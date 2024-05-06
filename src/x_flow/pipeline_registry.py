@@ -10,6 +10,7 @@ from x_flow.pipelines.config.pipeline import create_pipeline as create_config_pi
 from x_flow.pipelines.experiment.pipeline import (
     create_pipeline as create_experiment_pipeline,
 )
+from x_flow.pipelines.measure.pipeline import create_pipeline as create_measure_pipeline
 
 
 def register_pipelines() -> Dict[str, Pipeline]:
@@ -25,25 +26,10 @@ def register_pipelines() -> Dict[str, Pipeline]:
         inputs={"experiments": "experiments", "param_mapping": "param_mapping"},
     )
 
-    # experiments_pipeline = pipeline(
-    #     create_experiment_pipeline(),
-    #     namespace="dr_experiment",
-    #     inputs={
-    #         # "use_case_name": "use_case_name",
-    #         "raw_data_train": "raw_data_train",
-    #         "raw_data_test": "raw_data_test",
-    #     },
-    #     parameters={
-    #         "params:credentials.datarobot.api_token": "params:credentials.datarobot.api_token",
-    #         "params:credentials.datarobot.endpoint": "params:credentials.datarobot.endpoint",
-    #         "params:use_case_name": "params:use_case_name",
-    #     },
-    # )
     x_flow_experiments_pipeline = pipeline(
         create_experiment_pipeline(),
         namespace="experiment",
         inputs={
-            # "use_case_name": "use_case_name",
             "raw_data_train": "raw_data_train",
             "raw_data_test": "raw_data_test",
         },
@@ -51,21 +37,34 @@ def register_pipelines() -> Dict[str, Pipeline]:
             "params:credentials.datarobot.api_token": "params:credentials.datarobot.api_token",
             "params:credentials.datarobot.endpoint": "params:credentials.datarobot.endpoint",
             "params:use_case_name": "params:use_case_name",
-
-            # "params:experiment_config": "params:experiment_config",
-            # "params:experiment_name": "params:experiment_name",
         },
-        # outputs="autopilot_run",
+        outputs={
+            "backtests": "experiment.backtests",
+            "holdouts": "experiment.holdouts",
+            "external_holdout": "experiment.external_holdout",
+        },
+    )
+
+    x_flow_measure_pipeline = pipeline(
+        create_measure_pipeline(),
+        namespace="measure",
+        inputs={
+            "target_binarized": "experiment.target_binarized",
+            "holdouts": "experiment.holdouts",
+            "backtests": "experiment.backtests",
+            "external_holdout": "experiment.external_holdout",
+        },
+        parameters={
+            "params:experiment_name": "params:experiment.experiment_name",
+        },
+        outputs="holdout_metrics",
     )
 
     pipelines = {
         "__default__": config_pipeline
-        # + experiments_pipeline
-        + x_flow_experiments_pipeline,
+        + x_flow_experiments_pipeline
+        + x_flow_measure_pipeline,
         "config": config_pipeline,
-        # "experiment": experiments_pipeline,
     }
 
-    # pipelines = find_pipelines()
-    # pipelines["__default__"] = sum(pipelines.values())
     return pipelines

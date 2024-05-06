@@ -8,8 +8,12 @@ from typing import Any, Callable, List, Optional, TypeAlias, Union
 # pyright: reportPrivateImportUsage=false
 import datarobot as dr
 import pandas as pd
+from functools import partial
 
-from x_flow.utils.dr_helpers import get_training_predictions
+from utils.dr_helpers import get_training_predictions
+import logging
+
+log = logging.getLogger(__name__)
 
 
 # # TODO:
@@ -55,31 +59,29 @@ Metric: TypeAlias = Callable[
 from ...metrics.generalized_auc import generalized_f1
 
 
+def _load_and_index(row: pd.Series, columns: Optional[List[str]] = None):
 
+    # Load the data from the function stored in the row
+    try:
+        loaded_df = row["load_function"]()[columns]
+    except Exception as e:
+        log.error(f"Error loading data: {e}")
+        log.error(row["load_function"]().columns)
+        raise e
 
+    # Assumption: this function returns a DataFrame
+    # Create a DataFrame with repeated rows of index data for each entry in the loaded DataFrame
+    index_data = pd.DataFrame(
+        [row.drop("load_function")] * len(loaded_df),
+        columns=row.index.drop("load_function"),
+    )
 
-# def get_training_predictions(
-#     model: dr.Model, data_subset: dr.enums.DATA_SUBSET
-# ) -> pd.DataFrame:
-#     try:
-#         pred_job = model.request_training_predictions(data_subset=data_subset)
-#         tp = pred_job.get_result_when_complete()
-#     except Exception:  # pylint: disable=broad-except
-#         all_training_predictions = dr.TrainingPredictions.list(
-#             project_id=model.project_id
-#         )
-#         tp = [
-#             tp
-#             for tp in all_training_predictions
-#             if tp.model_id == model.id and tp.data_subset == data_subset
-#         ][0]
-#     return tp.get_all_as_dataframe()  # type: ignore
+    # Concatenate the index data with the loaded DataFrame
+    combined_df = pd.concat(
+        [index_data.reset_index(drop=True), loaded_df.reset_index(drop=True)], axis=1
+    )
 
-
-
-
-def get_actuals(df: pd.DataFrame, target: str):
-    return df[target]
+    return combined_df
 
 
 def calculate_custom_metric(
@@ -91,6 +93,62 @@ def calculate_custom_metric(
     metric_config: Optional[dict] = None,
 ) -> float:
     return metric(actuals, predictions, other_data, metric_config, experiment_config)
+
+
+def calculate_metrics(
+    experiment_name: str,
+    experiment_config: dict,
+    target_binarized: str,
+    metric_config: Optional[dict],
+    # project_dict: dict[str, Any],
+    # metrics: List[Metric],
+    predictions: dict[str, pd.DataFrame],
+):
+    metrics = {}
+    # for k, v in predictions.items():
+
+    log.info(f"{experiment_config}")
+    metadata_df = pd.DataFrame([k.split("/") for k in predictions])
+    metadata_df.columns = [
+        "project_id",
+        "partition",
+        "model_id",
+        "data_subset_name",
+    ]
+    metadata_df["load_function"] = predictions.values()
+
+    all_subgroups = pd.concat(
+        metadata_df.apply(partial(_load_and_index, columns=["prediction", target_binarized]), axis=1).tolist(), ignore_index=True  # type: ignore
+    )
+
+    # log.info(all_subgroups.head())
+
+    for group, df in all_subgroups.groupby("data_subset_name"):
+        # log.info(f"Calculating metrics for {group}")
+
+        for model_id, model_df in df.groupby("model_id"):
+            metric_value = calculate_custom_metric(
+                actuals=model_df[target_binarized],
+                predictions=model_df["prediction"],
+                metric=generalized_f1,
+                experiment_config=experiment_config,
+                metric_config=metric_config,
+            )
+            metrics[(group, model_id)] = metric_value
+    return metrics
+    # actuals = get_actuals(v, project_dict["target"])
+    # for metric in metrics:
+    #     metric_value = calculate_custom_metric(
+    #         actuals,
+    #         v["prediction"],
+    #         metric,
+    #         project_dict["experiment_config"],
+    #         other_data=None,
+    #         metric_config=None,
+    #     )
+    #     print(
+    #         f"experiment_name: {experiment_name}, model_id: {project_dict['model_id']}, metric: {metric.__name__}, metric_value: {metric_value}"
+    #     )
 
 
 # def select_candidate_models(

@@ -54,7 +54,7 @@ def create_pipeline(**kwargs) -> Pipeline:
                     "name": "dataset_name",
                     "group_data": "params:experiment_config.group_data",
                 },
-                outputs=["experiment_dataset_dict","df_dict"],
+                outputs=["experiment_dataset_dict", "df_dict"],
                 name="get_or_create_dataset_from_df_with_lock",
             ),
             node(
@@ -102,10 +102,21 @@ def create_pipeline(**kwargs) -> Pipeline:
                 name="get_holdout_predictions",
             ),
             node(
+                func=binarize_data_node,
+                inputs={
+                    "input_data": "raw_data_test",
+                    "target": "params:experiment_config.analyze_and_model.target",
+                    "binarize_data_config": "params:experiment_config.binarize_data_config",
+                },
+                outputs=["external_holdout_binarized", "_target_binarized"],
+                name="binarize_data_test",
+            ),
+            node(
                 func=get_external_predictions,
                 inputs={
                     "project_dict": "project_dict",
-                    "external_holdout": "raw_data_test",
+                    "external_holdout": "external_holdout_binarized",
+                    "group_data": "params:experiment_config.group_data",
                 },
                 outputs="external_holdout",
                 name="get_external_holdout_predictions",

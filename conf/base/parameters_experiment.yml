@@ -14,6 +14,19 @@ experiment:
     group_data:
       groupby_column:
 
+measure:
+  experiment_name:
+  experiment_config:
+    analyze_and_model:
+      target: 
+    binarize_data_config:
+    group_data:
+      groupby_column:
+  metric_config:
+    binarize_data_config:
+      operator: ">"
+      threshold: 100
+
 
 dr_experiment:
   experiment_name: single_run
