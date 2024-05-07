@@ -10,6 +10,7 @@ import logging
 import os
 import tempfile
 from collections import Counter
+import threading
 from typing import Any, List, Optional, Union
 
 import datarobot as dr
@@ -20,7 +21,33 @@ from filelock import FileLock
 log = logging.getLogger(__name__)
 
 
-def wait_for_jobs(jobs: list[dr.Job]) -> None:
+class RateLimiterSemaphore:
+    def __init__(self, rate):
+        self.rate = rate
+        self.semaphore = threading.Semaphore(rate)
+        self.lock = threading.Lock()
+        self.timer = threading.Timer(1.0, self.reset_semaphore)
+        self.timer.daemon = True
+        self.timer.start()
+
+    def reset_semaphore(self):
+        with self.lock:
+            self.semaphore = threading.Semaphore(self.rate)
+        self.timer = threading.Timer(1.0, self.reset_semaphore)
+        self.timer.daemon = True
+        self.timer.start()
+
+    def acquire(self):
+        return self.semaphore.acquire()
+
+    def release(self):
+        return self.semaphore.release()
+
+    def stop(self):
+        self.timer.cancel()
+
+
+def wait_for_jobs(jobs: list[dr.Job], rate_limiter: RateLimiterSemaphore) -> None:
     """
     Wait for a list of jobs to complete
     """
@@ -49,7 +76,9 @@ def wait_for_jobs(jobs: list[dr.Job]) -> None:
             break
         else:
             for j in jobs:
+                # if rate_limiter.acquire():
                 j.refresh()
+                # rate_limiter.release()
 
 
 def get_models(project: dr.Project) -> Union[List[dr.Model], List[dr.DatetimeModel]]:

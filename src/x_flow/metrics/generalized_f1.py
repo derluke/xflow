@@ -3,6 +3,7 @@ from typing import Optional
 
 import pandas as pd
 from sklearn.metrics import f1_score
+
 from ..pipelines.experiment.nodes import Operator
 
 log = logging.getLogger(__name__)

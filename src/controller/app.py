@@ -10,23 +10,17 @@ log = logging.getLogger(__name__)
 
 class XFlowApp(AbstractKedroBootApp):
     def _run(self, kedro_boot_session: KedroBootSession):
-        # leveraging config_loader to manage app's configs
-        experiment_params = kedro_boot_session.config_loader["parameters"]
-        log.info(f"experiment_params: {experiment_params}")
-        experiments = kedro_boot_session.run(namespace="config")
 
-        # log.info(f"experiments: {experiments}")
-        # experiment_name = experiment_params["experiment_name"]
-        def run_experiment(experiment):
-            experiment_name = experiment["experiment_name"]
+        def log_experiment_info(experiment_name, experiment):
             log.info(f"Experiment_name: {experiment_name}")
             log.info("=" * 80)
             log.info(f"experiment: {experiment}")
-            output_dict = kedro_boot_session.run(
-                namespace="experiment",
-                parameters={
+
+        def get_parameters(experiment, namespace):
+            if namespace == "experiment":
+                return {
                     "experiment_config": experiment,
-                    "experiment_name": experiment_name,
+                    "experiment_name": experiment["experiment_name"],
                     "experiment_config.analyze_and_model.target": experiment[
                         "analyze_and_model"
                     ]["target"],
@@ -34,41 +28,19 @@ class XFlowApp(AbstractKedroBootApp):
                         "binarize_data"
                     ],
                     "experiment_config.group_data": experiment["group_data"],
-                },
-                itertime_params={"experiment_name": experiment_name},
-            )
-            return {
-                "experiment_name": experiment_name,
-                "project_id": output_dict,
-                "experiment_config": experiment,
-            }
-
-        results = Parallel(n_jobs=10, backend="threading")(
-            delayed(run_experiment)(experiment) for experiment in experiments
-        )
-
-        log.info(f"results: {results}")
-
-        # with open("all_output.pickle", "wb") as f:
-        #     pickle.dump(results, f)
-
-        # with open("all_output.pickle", "rb") as f:
-        #     results = pickle.load(f)
-        # log.info(f"results: {results}")
-
-        def run_measure(experiment):
-            experiment_name = experiment["experiment_name"]
-            log.info(f"Experiment_name: {experiment_name}")
-            log.info("=" * 80)
-            log.info(f"experiment: {experiment}")
-            output_dict = kedro_boot_session.run(
-                namespace="measure",
-                parameters={
-                    "experiment_name": experiment_name,
+                }
+            elif namespace == "measure":
+                return {
+                    "experiment_name": experiment["experiment_name"],
                     "experiment_config": experiment,
-                    # "metrics": experiment["metrics"],
-                },
-                # inputs={"measure.project_dict": experiment["project_id"]},
+                }
+
+        def run_namespace_session(experiment, namespace):
+            experiment_name = experiment["experiment_name"]
+            log_experiment_info(experiment_name, experiment)
+            output_dict = kedro_boot_session.run(
+                namespace=namespace,
+                parameters=get_parameters(experiment, namespace),
                 itertime_params={"experiment_name": experiment_name},
             )
             return {
@@ -77,11 +49,25 @@ class XFlowApp(AbstractKedroBootApp):
                 "experiment_config": experiment,
             }
 
-        measure_results = Parallel(n_jobs=10, backend="threading")(
-            delayed(run_measure)(experiment) for experiment in experiments
-        )
-        log.info(f"measure_results: {measure_results}")
-        # from x_flow.pipelines.measure.nodes import select_candidate_models
+        def run_experiments(experiments, namespace):
+            results = Parallel(n_jobs=100, backend="threading")(
+                delayed(run_namespace_session)(experiment, namespace)
+                for experiment in experiments
+            )
+            log.info(f"{namespace}_results: {results}")
+            return results
 
-        # candidate_models = select_candidate_models(results)
-        # log.info(f"candidate_models: {candidate_models}")
+        # leveraging config_loader to manage app's configs
+        experiment_params = kedro_boot_session.config_loader["parameters"]
+        # log.info(f"experiment_params: {experiment_params}")
+        experiments = kedro_boot_session.run(namespace="config")
+
+        # experiment_results = run_experiments(experiments, "experiment")
+        measure_results = run_experiments(experiments, "measure")
+
+        # save results
+        # with open("experiment_results.pkl", "wb") as f:
+        #     pickle.dump(experiment_results, f)
+
+        with open("measure_results.pkl", "wb") as f:
+            pickle.dump(measure_results, f)

@@ -54,10 +54,11 @@ def register_pipelines() -> Dict[str, Pipeline]:
             "backtests": "experiment.backtests",
             "external_holdout": "experiment.external_holdout",
         },
-        parameters={
-            "params:experiment_name": "params:experiment.experiment_name",
+        outputs={
+            "holdout_metrics": "measure.holdout_metrics",
+            "backtest_metrics": "measure.backtest_metrics",
+            "external_holdout_metrics": "measure.external_holdout_metrics",
         },
-        outputs="holdout_metrics",
     )
 
     pipelines = {

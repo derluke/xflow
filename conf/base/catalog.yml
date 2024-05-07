@@ -64,6 +64,14 @@ measure.holdout_metrics:
   type: kedro_datasets.pandas.CSVDataset
   filepath: data/outputs/${itertime_params:experiment_name}/metrics/holdout_metrics.csv
 
+measure.backtest_metrics:
+  type: kedro_datasets.pandas.CSVDataset
+  filepath: data/outputs/${itertime_params:experiment_name}/metrics/backtest_metrics.csv
+
+measure.external_holdout_metrics:
+  type: kedro_datasets.pandas.CSVDataset
+  filepath: data/outputs/${itertime_params:experiment_name}/metrics/external_holdout_metrics.csv
+
 
 "{node}_checksum": 
   type: kedro_datasets.text.TextDataset

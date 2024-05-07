@@ -56,7 +56,7 @@ Metric: TypeAlias = Callable[
     float,
 ]
 
-from ...metrics.generalized_auc import generalized_f1
+from ...metrics.generalized_f1 import generalized_f1
 
 
 def _load_and_index(row: pd.Series, columns: Optional[List[str]] = None):
@@ -106,12 +106,12 @@ def calculate_metrics(
 ):
     metrics = {}
     # for k, v in predictions.items():
-
-    log.info(f"{experiment_config}")
+    log.info(f"Experiment name: {experiment_name}")
+    log.info(f"Experiment config: {experiment_config}")
     metadata_df = pd.DataFrame([k.split("/") for k in predictions])
     metadata_df.columns = [
-        "project_id",
         "partition",
+        "project_id",
         "model_id",
         "data_subset_name",
     ]
@@ -126,7 +126,7 @@ def calculate_metrics(
     for group, df in all_subgroups.groupby("data_subset_name"):
         # log.info(f"Calculating metrics for {group}")
 
-        for model_id, model_df in df.groupby("model_id"):
+        for (project_id, model_id), model_df in df.groupby(["project_id", "model_id"]):
             metric_value = calculate_custom_metric(
                 actuals=model_df[target_binarized],
                 predictions=model_df["prediction"],
@@ -134,8 +134,26 @@ def calculate_metrics(
                 experiment_config=experiment_config,
                 metric_config=metric_config,
             )
-            metrics[(group, model_id)] = metric_value
-    return metrics
+            metrics[(experiment_name, project_id, group, model_id)] = metric_value
+    # convert to DataFrame
+    metrics_list = [
+        {
+            "experiment_name": experiment_name,
+            "project_id": project_id,
+            "group": group,
+            "model_id": model_id,
+            "metric_value": metric_value,
+        }
+        for (
+            experiment_name,
+            project_id,
+            group,
+            model_id,
+        ), metric_value in metrics.items()
+    ]
+
+    metrics_df = pd.DataFrame(metrics_list)
+    return metrics_df
     # actuals = get_actuals(v, project_dict["target"])
     # for metric in metrics:
     #     metric_value = calculate_custom_metric(
