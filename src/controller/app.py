@@ -7,6 +7,8 @@ from kedro_boot.framework.session import KedroBootSession
 
 log = logging.getLogger(__name__)
 
+# TODO: datarobot version stuff
+
 
 class XFlowApp(AbstractKedroBootApp):
     def _run(self, kedro_boot_session: KedroBootSession):
@@ -58,8 +60,6 @@ class XFlowApp(AbstractKedroBootApp):
             return results
 
         # leveraging config_loader to manage app's configs
-        experiment_params = kedro_boot_session.config_loader["parameters"]
-        # log.info(f"experiment_params: {experiment_params}")
         experiments = kedro_boot_session.run(namespace="config")
 
         # experiment_results = run_experiments(experiments, "experiment")

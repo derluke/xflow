@@ -26,6 +26,10 @@ measure:
     binarize_data_config:
       operator: ">"
       threshold: 100
+    weights: weights
+  metrics:
+    - generalized_f1
+    - mean_squared_error
 
 
 dr_experiment:

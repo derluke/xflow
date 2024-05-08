@@ -5,7 +5,7 @@ generated using Kedro 0.19.3
 
 import logging
 import os
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 # pyright: reportPrivateImportUsage=false
 import datarobot as dr
@@ -16,7 +16,6 @@ from datarobotx.idp.common.hashing import get_hash
 from datarobotx.idp.datasets import get_or_create_dataset_from_df
 from filelock import FileLock
 from joblib import Parallel, delayed
-from pydantic import BaseModel, Field, field_validator
 from utils.dr_helpers import (
     RateLimiterSemaphore,
     get_external_holdout_predictions,
@@ -24,6 +23,15 @@ from utils.dr_helpers import (
     get_training_predictions,
     wait_for_jobs,
 )
+from utils.operator import Operator
+
+# TODO:
+# timeseries nowcasting support
+# double threshold "binarization" support (multi project)
+# low or other vs high or other.
+# pre processing and post processing nodes (with factory and registry) (P1.5)
+# custom feature selection
+
 
 # monkey patch datarobot RESTClientObject to use a rate limiter
 rate_limiter = RateLimiterSemaphore(30)
@@ -47,42 +55,6 @@ for handler in dr_logger.handlers:
     if isinstance(handler, logging.StreamHandler):
         # log.info(f"Removing handler {handler}")
         dr_logger.removeHandler(handler)
-
-
-class Operator(BaseModel):
-    operator: str = Field(...)
-
-    @field_validator("operator")
-    def normalize_operation(cls, v):
-        operation_mapping = {
-            "<": ["lt", "less than", "less"],
-            ">": ["gt", "greater than", "greater"],
-            "<=": ["lte", "less than or equal to", "less equal"],
-            ">=": ["gte", "greater than or equal to", "greater equal"],
-            "==": ["eq", "equal to", "equals", "equal"],
-            "!=": ["ne", "not equal to", "not equals", "not equal"],
-        }
-
-        for op, aliases in operation_mapping.items():
-            if v.lower() in aliases + [op]:
-                return op
-
-        raise ValueError(
-            f"""Invalid operation: {v}
-            allowed Values:
-            {operation_mapping}
-        """
-        )
-
-    def apply_operation(self, threshold: float) -> Callable[[float], bool]:
-        return {
-            ">": lambda x: x > threshold,
-            "<": lambda x: x < threshold,
-            ">=": lambda x: x >= threshold,
-            "<=": lambda x: x <= threshold,
-            "==": lambda x: x == threshold,
-            "!=": lambda x: x != threshold,
-        }[self.operator]
 
 
 def unpack_row_to_args(
@@ -459,3 +431,13 @@ def get_external_predictions(
         aggregated_results.update(result)  # type: ignore
 
     return aggregated_results
+
+
+def get_datarobot_metrics(
+    project_dict: Dict[str, str],
+):
+    for group, project_id in project_dict.items():
+        project = dr.Project.get(project_id)
+
+        for model in get_models(project):
+            model.metrics

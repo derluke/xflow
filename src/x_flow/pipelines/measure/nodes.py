@@ -3,15 +3,17 @@ This is a boilerplate pipeline 'measure'
 generated using Kedro 0.19.3
 """
 
+import logging
+from functools import partial
 from typing import Any, Callable, List, Optional, TypeAlias, Union
 
 # pyright: reportPrivateImportUsage=false
 import datarobot as dr
 import pandas as pd
-from functools import partial
-
 from utils.dr_helpers import get_training_predictions
-import logging
+
+from x_flow.metrics.implementations import GeneralizedF1, MeanSquaredError
+from x_flow.metrics.metrics import MetricFactory
 
 log = logging.getLogger(__name__)
 
@@ -51,12 +53,14 @@ log = logging.getLogger(__name__)
 #     #  decay testing to figure out how frequently to retrain
 #     ...
 
+
+MetricFactory.register_metric("generalized_f1", GeneralizedF1())
+MetricFactory.register_metric("mean_squared_error", MeanSquaredError())
+
 Metric: TypeAlias = Callable[
     [pd.Series, pd.Series, Optional[pd.DataFrame], Optional[dict], Optional[dict]],
     float,
 ]
-
-from ...metrics.generalized_f1 import generalized_f1
 
 
 def _load_and_index(row: pd.Series, columns: Optional[List[str]] = None):
@@ -87,27 +91,26 @@ def _load_and_index(row: pd.Series, columns: Optional[List[str]] = None):
 def calculate_custom_metric(
     actuals: pd.Series,
     predictions: pd.Series,
-    metric: Metric,
+    metric_name: str,
     experiment_config: dict,
-    other_data: Optional[pd.DataFrame] = None,
     metric_config: Optional[dict] = None,
+    extra_data: Optional[pd.DataFrame] = None,
 ) -> float:
-    return metric(actuals, predictions, other_data, metric_config, experiment_config)
+    metric = MetricFactory.get_metric(metric_name)
+    return metric.compute(
+        actuals, predictions, extra_data, experiment_config, metric_config
+    )
 
 
 def calculate_metrics(
     experiment_name: str,
     experiment_config: dict,
-    target_binarized: str,
-    metric_config: Optional[dict],
-    # project_dict: dict[str, Any],
-    # metrics: List[Metric],
     predictions: dict[str, pd.DataFrame],
+    metric_config: dict,
+    target_binarized: str,
+    metrics: List[str],
 ):
-    metrics = {}
-    # for k, v in predictions.items():
-    log.info(f"Experiment name: {experiment_name}")
-    log.info(f"Experiment config: {experiment_config}")
+
     metadata_df = pd.DataFrame([k.split("/") for k in predictions])
     metadata_df.columns = [
         "partition",
@@ -120,40 +123,28 @@ def calculate_metrics(
     all_subgroups = pd.concat(
         metadata_df.apply(partial(_load_and_index, columns=["prediction", target_binarized]), axis=1).tolist(), ignore_index=True  # type: ignore
     )
-
-    # log.info(all_subgroups.head())
-
+    metrics_list = []
     for group, df in all_subgroups.groupby("data_subset_name"):
-        # log.info(f"Calculating metrics for {group}")
-
         for (project_id, model_id), model_df in df.groupby(["project_id", "model_id"]):
-            metric_value = calculate_custom_metric(
-                actuals=model_df[target_binarized],
-                predictions=model_df["prediction"],
-                metric=generalized_f1,
-                experiment_config=experiment_config,
-                metric_config=metric_config,
-            )
-            metrics[(experiment_name, project_id, group, model_id)] = metric_value
-    # convert to DataFrame
-    metrics_list = [
-        {
-            "experiment_name": experiment_name,
-            "project_id": project_id,
-            "group": group,
-            "model_id": model_id,
-            "metric_value": metric_value,
-        }
-        for (
-            experiment_name,
-            project_id,
-            group,
-            model_id,
-        ), metric_value in metrics.items()
-    ]
+            row = {
+                "experiment_name": experiment_name,
+                "project_id": project_id,
+                "group": group,
+                "model_id": model_id,
+            }
+            for metric in metrics:
+                metric_value = calculate_custom_metric(
+                    actuals=model_df[target_binarized],
+                    predictions=model_df["prediction"],
+                    metric_name=metric,
+                    experiment_config=experiment_config,
+                    metric_config=metric_config,
+                )
 
-    metrics_df = pd.DataFrame(metrics_list)
-    return metrics_df
+                row[metric] = metric_value
+            metrics_list.append(row)
+
+    return pd.DataFrame(metrics_list)
     # actuals = get_actuals(v, project_dict["target"])
     # for metric in metrics:
     #     metric_value = calculate_custom_metric(
