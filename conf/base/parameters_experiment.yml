@@ -3,7 +3,7 @@
 #
 # Documentation for this file format can be found in "Parameters"
 # Link: https://docs.kedro.org/en/0.19.3/configuration/parameters.html
-use_case_name: x-flow
+use_case_name: x-flow NowCasting
 
 experiment:
   experiment_name:
