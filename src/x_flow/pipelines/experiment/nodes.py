@@ -25,6 +25,16 @@ from utils.dr_helpers import (
 )
 from utils.operator import Operator
 
+try:
+    from datarobot import UseCase
+except:
+
+    class UseCase:
+        def __init__(self, id: Optional[str], name: str):
+            self.id = id
+            self.name = name
+
+
 # TODO:
 # timeseries nowcasting support
 # double threshold "binarization" support (multi project)
@@ -133,6 +143,9 @@ def get_or_create_dataset_from_df_with_lock(
 ) -> Tuple[Dict[str, str], Dict[str, pd.DataFrame]]:
     # log.warning(f"Grouping data by {group_data['groupby_column']} for experiment {name}")
 
+    if use_case_id == "not_supported":
+        use_case_id = None
+
     def _get_or_create_dataset_from_df_with_lock(
         use_case_id: str,
         df: pd.DataFrame,
@@ -191,7 +204,8 @@ def run_autopilot(
     use_case_id: str,
     experiment_config: Dict,
 ) -> Dict[str, str]:
-    use_case = dr.UseCase.get(use_case_id)
+    if use_case_id == "not_supported":
+        use_case_id = None
 
     def _get_or_create_autopilot_run(
         name: str,
@@ -208,7 +222,7 @@ def run_autopilot(
                 token=token,
                 endpoint=endpoint,
                 name=name,
-                use_case=use_case,
+                use_case=use_case_id,
                 dataset_id=dataset_id,
                 advanced_options_config=advanced_options_config,
                 analyze_and_model_config=analyze_and_model_config,
@@ -226,11 +240,8 @@ def run_autopilot(
     jobs = {}
     for group, dataset_id in dataset_dict.items():
         jobs[group] = []
-        dataset = dr.Dataset.get(dataset_id)
 
-        project_name = experiment_config.get(
-            "experiment_name", f"{use_case.name}:{target_name} [{dataset.name}]"
-        )
+        project_name = experiment_config["experiment_name"]
         if group != "__all_data__":
             project_name = f"{project_name} ({group})"
         log.info(f"Experiment Config: {experiment_config}")

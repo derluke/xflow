@@ -1,14 +1,22 @@
-from datarobotx.idp.use_cases import get_or_create_use_case
+try:
+    from datarobot import UseCase
+    from datarobotx.idp.use_cases import get_or_create_use_case
+except ImportError:
+
+    def get_or_create_use_case(*args, **kwags):
+        return "not_supported"
+
+
 from kedro.pipeline import Pipeline, node
 from kedro.pipeline.modular_pipeline import pipeline
 
 from .nodes import (
     binarize_data_node,
+    calculate_backtests,
+    get_backtest_predictions,
+    get_external_predictions,
     get_or_create_dataset_from_df_with_lock,
     run_autopilot,
-    get_backtest_predictions,
-    calculate_backtests,
-    get_external_predictions,
 )
 
 
