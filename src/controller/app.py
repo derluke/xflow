@@ -26,10 +26,10 @@ class XFlowApp(AbstractKedroBootApp):
                     "experiment_config.analyze_and_model.target": experiment[
                         "analyze_and_model"
                     ]["target"],
-                    "experiment_config.binarize_data_config": experiment[
-                        "binarize_data"
-                    ],
-                    "experiment_config.group_data": experiment["group_data"],
+                    "experiment_config.binarize_data_config": experiment.get(
+                        "binarize_data", {}
+                    ),
+                    "experiment_config.group_data": experiment.get("group_data", {}),
                 }
             elif namespace == "measure":
                 return {
@@ -62,12 +62,12 @@ class XFlowApp(AbstractKedroBootApp):
         # leveraging config_loader to manage app's configs
         experiments = kedro_boot_session.run(namespace="config")
 
-        # experiment_results = run_experiments(experiments, "experiment")
+        experiment_results = run_experiments(experiments, "experiment")
         measure_results = run_experiments(experiments, "measure")
 
         # save results
-        # with open("experiment_results.pkl", "wb") as f:
-        #     pickle.dump(experiment_results, f)
+        with open("experiment_results.pkl", "wb") as f:
+            pickle.dump(experiment_results, f)
 
         with open("measure_results.pkl", "wb") as f:
             pickle.dump(measure_results, f)

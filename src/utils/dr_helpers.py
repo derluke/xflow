@@ -5,17 +5,19 @@ This module contains utility functions for working with DataRobot projects
 """
 
 # pyright: reportPrivateImportUsage=false
+import datetime
 import hashlib
 import logging
 import os
 import tempfile
-from collections import Counter
 import threading
+from collections import Counter
 from typing import Any, List, Optional, Union
 
 import datarobot as dr
 import pandas as pd
 from datarobot.utils import retry
+from datarobotx.idp.common.hashing import get_hash
 from filelock import FileLock
 
 log = logging.getLogger(__name__)
@@ -174,14 +176,41 @@ def upload_dataset(
     # check all uploaded dataset's filenames:
     datasets = project.get_datasets()
     uploaded_datasets = {d.name: d for d in datasets}
+    if project.use_time_series:
+        datetime_partitioning = dr.DatetimePartitioning.get(project.id)  # type: ignore
+        date_column = datetime_partitioning.datetime_partition_column
+        date_column = date_column.replace(" (actual)", "")  # type: ignore
+        min_date = sourcedata[date_column].min()
+        max_date = sourcedata[date_column].max()
+        # ensure these are of type datetime.datetime
+        if isinstance(min_date, pd.Timestamp):
+            min_date = min_date.to_pydatetime()
+        elif isinstance(min_date, str):
+            min_date = pd.to_datetime(min_date).to_pydatetime()
+        if isinstance(max_date, pd.Timestamp):
+            max_date = max_date.to_pydatetime()
+        elif isinstance(max_date, str):
+            max_date = pd.to_datetime(max_date).to_pydatetime()
+        else:
+            assert isinstance(max_date, datetime.datetime)
+        kwags["predictions_start_date"] = min_date
+        kwags["predictions_end_date"] = max_date
 
-    hashed_df = _hash_pandas(sourcedata)
+    kwags_for_hash = kwags.copy()
+    kwags_for_hash["predictions_start_date"] = str(
+        kwags_for_hash.get("predictions_start_date")
+    )
+    kwags_for_hash["predictions_end_date"] = str(
+        kwags_for_hash.get("predictions_end_date")
+    )
+    hashed_df = get_hash(sourcedata, **kwags_for_hash)
     if hashed_df in uploaded_datasets:
         return uploaded_datasets[hashed_df]
     else:
         # pop filename from kwargs
         _ = kwags.pop("dataset_filename", None)
         # compress data before uploading
+
         with tempfile.TemporaryDirectory() as tempdir:
             file_location = os.path.join(tempdir, hashed_df)
             sourcedata.to_csv(file_location, index=False, compression="gzip")

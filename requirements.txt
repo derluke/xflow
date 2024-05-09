@@ -18,3 +18,4 @@ matplotlib~=3.8.4
 datarobot~=3.4.0
 git+https://github.com/datarobot-community/datarobotx-idp.git@v0.2.1
 jupyterlab~=4.1.6
+scikit-learn==1.4.2
