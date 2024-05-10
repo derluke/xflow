@@ -1,5 +1,5 @@
-experiment_name,target,mode,worker_count,datetime_partition_column,number_of_backtests,use_time_series,forecast_window_start,forecast_window_end,default_to_known_in_advance
-simple,Fidelity Contra vs SPX,quick,-1,date,5,True,0,0,
-full,Fidelity Contra vs SPX,auto,-1,date,5,True,0,0,
-simple_NC,Fidelity Contra vs SPX,quick,-1,date,5,True,0,0,True
-full_NC,Fidelity Contra vs SPX,auto,-1,date,5,True,0,0,True
+experiment_name,target,mode,default_to_known_in_advance
+simple,Fidelity Contra vs SPX,quick,
+full,Fidelity Contra vs SPX,auto,
+simple_NC,Fidelity Contra vs SPX,quick,True
+full_NC,Fidelity Contra vs SPX,auto,True

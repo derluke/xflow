@@ -3,6 +3,8 @@ This is a boilerplate pipeline 'config'
 generated using Kedro 0.19.3
 """
 
+from copy import deepcopy
+import json
 import logging
 from typing import Dict, List
 
@@ -10,6 +12,26 @@ import numpy as np
 import pandas as pd
 
 log = logging.getLogger(__name__)
+
+
+def merge_dicts(dict1, dict2):
+    """
+    Recursively merge two dictionaries.
+
+    Args:
+        dict1 (dict): The first dictionary to merge.
+        dict2 (dict): The second dictionary to merge.
+
+    Returns:
+        dict: The merged dictionary.
+    """
+    result = deepcopy(dict1)
+    for key, value in dict2.items():
+        if key in result and isinstance(result[key], dict) and isinstance(value, dict):
+            result[key] = merge_dicts(result[key], value)
+        elif (key not in result or result[key] is None) and value is not None:
+            result[key] = value
+    return result
 
 
 def load_data(data: pd.DataFrame) -> List[Dict]:
@@ -22,12 +44,22 @@ def load_data(data: pd.DataFrame) -> List[Dict]:
 
 
 def decode_config(
-    experiment_config: List[Dict], param_mapping: Dict[str, str]
+    experiment_config: List[Dict],
+    param_mapping: Dict[str, str],
+    global_parameters: Dict[str, str],
 ) -> List[Dict]:
     # for each row in the config try to map the parameters
     # to the correct values
-    log.info(f"Config: {experiment_config}")
-    log.info(f"Decoding config with mapping: {param_mapping}")
+
+    global_parameters = global_parameters.get("experiment_config", {})  # type: ignore
+    log.info(f"Config: {json.dumps(experiment_config, indent=4, sort_keys=True)}")
+    log.info(
+        f"Decoding config with mapping: {json.dumps(param_mapping, indent=4, sort_keys=True)}"
+    )
+    log.info(
+        f"Global parameters: {json.dumps(global_parameters, indent=4, sort_keys=True)}"
+    )
+
     decoded_configs = []
     seen_experiment_names = set()
 
@@ -51,5 +83,38 @@ def decode_config(
                 ] = experiment_value
         decoded_configs.append(decoded_config)
 
-    log.info(f"Decoded config: {decoded_configs}")
-    return decoded_configs
+    log.info(
+        f"Decoded config pre merge: {json.dumps(decoded_configs, indent=4, sort_keys=True)}"
+    )
+
+    # deep merge globals into the decoded configs if not overridden
+    merged_configs = []
+    for decoded_config in decoded_configs:
+        merged_config = merge_dicts(decoded_config, global_parameters)
+        merged_configs.append(merged_config)
+    log.info(
+        f"Decoded config post merge: {json.dumps(merged_configs, indent=4, sort_keys=True)}"
+    )
+
+    def prune_none_values(d: Dict) -> Dict:
+        if not isinstance(d, Dict):
+            return d
+
+        new_dict = {}
+        for k, v in d.items():
+            if v is None:
+                continue
+            if isinstance(v, Dict):
+                pruned = prune_none_values(v)
+                if pruned:
+                    new_dict[k] = pruned
+            else:
+                new_dict[k] = v
+
+        return new_dict
+
+    merged_pruned_dicts = [prune_none_values(d) for d in merged_configs]
+    log.info(
+        f"Decoded config post prune: {json.dumps(merged_pruned_dicts, indent=4, sort_keys=True)}"
+    )
+    return merged_pruned_dicts

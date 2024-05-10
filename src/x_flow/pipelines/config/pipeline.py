@@ -18,6 +18,7 @@ def create_pipeline(**kwargs) -> Pipeline:
                 inputs={
                     "experiment_config": "experiments_records",
                     "param_mapping": "param_mapping",
+                    "global_parameters": "params:global_params",
                 },
                 outputs="decoded_config",
                 name="decode_config",

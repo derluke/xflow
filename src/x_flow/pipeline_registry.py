@@ -24,6 +24,7 @@ def register_pipelines() -> Dict[str, Pipeline]:
         create_config_pipeline(),
         namespace="config",
         inputs={"experiments": "experiments", "param_mapping": "param_mapping"},
+        parameters={"params:global_params": "params:experiment"},
     )
 
     x_flow_experiments_pipeline = pipeline(
@@ -58,6 +59,12 @@ def register_pipelines() -> Dict[str, Pipeline]:
             "holdout_metrics": "measure.holdout_metrics",
             "backtest_metrics": "measure.backtest_metrics",
             "external_holdout_metrics": "measure.external_holdout_metrics",
+        },
+        parameters={
+            "params:experiment_config": "params:experiment.experiment_config",
+            "params:metrics": "params:experiment.metrics",
+            "params:experiment_name": "params:experiment.experiment_name",
+            "params:metric_config": "params:experiment.metric_config",
         },
     )
 

@@ -9,16 +9,16 @@ experiment:
   experiment_name:
   experiment_config:
     analyze_and_model:
-      target: 
-    binarize_data_config:
-    group_data:
-      groupby_column:
+      target:
+      max_wait: 10000
+      worker_count: -1
 
-measure:
-  experiment_name:
-  experiment_config:
-    analyze_and_model:
-      target: 
+    datetime_partitioning:
+      use_time_series: True
+      datetime_partition_column: date
+      number_of_backtests: 5
+      forecast_window_start: 0
+      forecast_window_end: 0
     binarize_data_config:
     group_data:
       groupby_column:
@@ -30,6 +30,7 @@ measure:
   metrics:
     - generalized_f1
     - mean_squared_error
+
 
 
 dr_experiment:

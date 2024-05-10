@@ -32,6 +32,29 @@ HOOKS = (CredentialsHooks(), CheckpointHooks())
 from kedro.config import OmegaConfigLoader  # noqa: E402
 
 
+from copy import deepcopy
+
+
+def merge_dicts(dict1, dict2):
+    """
+    Recursively merge two dictionaries.
+
+    Args:
+        dict1 (dict): The first dictionary to merge.
+        dict2 (dict): The second dictionary to merge.
+
+    Returns:
+        dict: The merged dictionary.
+    """
+    result = deepcopy(dict1)
+    for key, value in dict2.items():
+        if key in result and isinstance(result[key], dict) and isinstance(value, dict):
+            result[key] = merge_dicts(result[key], value)
+        else:
+            result[key] = value
+    return result
+
+
 CONFIG_LOADER_CLASS = OmegaConfigLoader
 # Keyword arguments to pass to the `CONFIG_LOADER_CLASS` constructor.
 CONFIG_LOADER_ARGS = {
@@ -40,6 +63,9 @@ CONFIG_LOADER_ARGS = {
     "config_patterns": {
         #           "spark" : ["spark*/"],
         "parameters": ["parameters*", "parameters*/**", "**/parameters*"],
+    },
+    "custom_resolvers": {
+        "merge": merge_dicts,
     },
 }
 
