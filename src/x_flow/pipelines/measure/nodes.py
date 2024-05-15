@@ -9,8 +9,8 @@ from typing import Any, Callable, Dict, List, Optional, TypeAlias, Union
 
 # pyright: reportPrivateImportUsage=false
 import datarobot as dr
-from joblib import Parallel, delayed
 import pandas as pd
+from joblib import Parallel, delayed
 from utils.dr_helpers import get_training_predictions
 
 from x_flow.metrics.implementations import (
@@ -70,7 +70,6 @@ Metric: TypeAlias = Callable[
 
 
 def _load_and_index(row: pd.Series, columns: Optional[List[str]] = None):
-
     # Load the data from the function stored in the row
     try:
         loaded_df = row["load_function"]()[columns]
@@ -112,7 +111,10 @@ def calculate_metrics(
     metadata_df["load_function"] = predictions.values()
 
     all_subgroups = pd.concat(
-        metadata_df.apply(partial(_load_and_index, columns=["prediction", target_binarized]), axis=1).tolist(), ignore_index=True  # type: ignore
+        metadata_df.apply(
+            partial(_load_and_index, columns=["prediction", target_binarized]), axis=1
+        ).tolist(),
+        ignore_index=True,  # type: ignore
     )
 
     def process_group(
@@ -147,6 +149,7 @@ def calculate_metrics(
 
                 metadata.update(metric_value)
             group_metrics_list.append(metadata)
+            # log.info(f"metrics: {metadata}")
 
         return group_metrics_list
 

@@ -12,7 +12,6 @@ log = logging.getLogger(__name__)
 
 class XFlowApp(AbstractKedroBootApp):
     def _run(self, kedro_boot_session: KedroBootSession):
-
         def log_experiment_info(experiment_name, experiment):
             log.info(f"Experiment_name: {experiment_name}")
             log.info("=" * 80)
