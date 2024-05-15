@@ -1,5 +1,7 @@
-experiment_name,target,mode,default_to_known_in_advance
-simple,Fidelity Contra vs SPX,quick,
-full,Fidelity Contra vs SPX,auto,
-simple_NC,Fidelity Contra vs SPX,quick,True
-full_NC,Fidelity Contra vs SPX,auto,True
+experiment_name,target,mode,default_to_known_in_advance,binarize_operator,binarize_threshold
+simple,Fidelity Contra vs SPX,quick,,,
+full,Fidelity Contra vs SPX,auto,,,
+simple_NC,Fidelity Contra vs SPX,quick,True,,
+full_NC,Fidelity Contra vs SPX,auto,True,,
+simple_NC_BC,Fidelity Contra vs SPX,quick,True,>,0
+full_NC_BC,Fidelity Contra vs SPX,auto,True,>,0

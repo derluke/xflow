@@ -61,10 +61,9 @@ def register_pipelines() -> Dict[str, Pipeline]:
             "external_holdout_metrics": "measure.external_holdout_metrics",
         },
         parameters={
-            "params:experiment_config": "params:experiment.experiment_config",
-            "params:metrics": "params:experiment.metrics",
-            "params:experiment_name": "params:experiment.experiment_name",
-            "params:metric_config": "params:experiment.metric_config",
+            # "params:experiment_config": "params:experiment.experiment_config",
+            # "params:metrics": "params:experiment.metrics",
+            # "params:metric_config": "params:experiment.metric_config",
         },
     )
 

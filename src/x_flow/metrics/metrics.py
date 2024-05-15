@@ -15,8 +15,10 @@ log = logging.getLogger(__name__)
 
 
 class Metric(ABC):
-    def __init__(self, data_type: str):
+    def __init__(self, data_type: str, name: str, higher_is_better: Dict[str, bool]):
         self.data_type = data_type  # 'binary' or 'continuous'
+        self.name = name
+        self.higher_is_better = higher_is_better
 
     @abstractmethod
     def compute(
@@ -26,7 +28,8 @@ class Metric(ABC):
         extra_data: Optional[pd.DataFrame],
         experiment_config: Optional[Dict],
         metric_config: Optional[Dict],
-    ) -> float:
+        metadata: Optional[Dict],
+    ) -> Dict[str, float]:
         pass
 
     def preprocess(

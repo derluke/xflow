@@ -66,8 +66,8 @@ class XFlowApp(AbstractKedroBootApp):
         measure_results = run_experiments(experiments, "measure")
 
         # save results
-        with open("experiment_results.pkl", "wb") as f:
-            pickle.dump(experiment_results, f)
+        # with open("experiment_results.pkl", "wb") as f:
+        #     pickle.dump(experiment_results, f)
 
         with open("measure_results.pkl", "wb") as f:
             pickle.dump(measure_results, f)

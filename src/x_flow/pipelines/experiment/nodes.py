@@ -274,6 +274,15 @@ def run_autopilot(
     return return_dict
 
 
+def unlock_holdouts(
+    project_dict: Dict[str, str],
+):
+    for _, project_id in project_dict.items():
+        project = dr.Project.get(project_id)
+        project.unlock_holdout()
+    return True
+
+
 def merge_predictions(
     training_predictions: pd.DataFrame, training_data: pd.DataFrame
 ) -> pd.DataFrame:
@@ -282,8 +291,11 @@ def merge_predictions(
 
 
 def calculate_backtests(
-    project_dict: Dict[str, str], max_models_per_project: int = 5
+    project_dict: Dict[str, str],
+    holdouts_unlocked: bool,
+    max_models_per_project: int = 5,
 ) -> bool:
+    assert holdouts_unlocked, "Holdouts have not been unlocked"
 
     def _calculate_backtest(model: dr.DatetimeModel):
         # if rate_limiter.acquire():

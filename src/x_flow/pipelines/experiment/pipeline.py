@@ -17,6 +17,7 @@ from .nodes import (
     get_external_predictions,
     get_or_create_dataset_from_df_with_lock,
     run_autopilot,
+    unlock_holdouts,
 )
 
 
@@ -79,9 +80,18 @@ def create_pipeline(**kwargs) -> Pipeline:
                 name="get_or_create_project_dict",
             ),
             node(
+                func=unlock_holdouts,
+                inputs={
+                    "project_dict": "project_dict",
+                },
+                outputs="holdouts_unlocked",
+                name="unlock_holdouts",
+            ),
+            node(
                 func=calculate_backtests,
                 inputs={
                     "project_dict": "project_dict",
+                    "holdouts_unlocked": "holdouts_unlocked",
                 },
                 outputs="backtests_completed",
                 name="calculate_backtests",

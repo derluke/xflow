@@ -15,13 +15,10 @@ def create_pipeline(**kwargs) -> Pipeline:
             node(
                 func=calculate_metrics,
                 inputs={
-                    "experiment_name": "params:experiment_name",
                     "experiment_config": "params:experiment_config",
                     "target_binarized": "target_binarized",
                     "metric_config": "params:metric_config",
                     "metrics": "params:metrics",
-                    # "project_dict": "project_dict",
-                    # "metrics": "metrics",
                     "predictions": "holdouts",
                 },
                 outputs="holdout_metrics",
@@ -30,13 +27,10 @@ def create_pipeline(**kwargs) -> Pipeline:
             node(
                 func=calculate_metrics,
                 inputs={
-                    "experiment_name": "params:experiment_name",
                     "experiment_config": "params:experiment_config",
                     "target_binarized": "target_binarized",
                     "metric_config": "params:metric_config",
                     "metrics": "params:metrics",
-                    # "project_dict": "project_dict",
-                    # "metrics": "metrics",
                     "predictions": "backtests",
                 },
                 outputs="backtest_metrics",
@@ -45,13 +39,10 @@ def create_pipeline(**kwargs) -> Pipeline:
             node(
                 func=calculate_metrics,
                 inputs={
-                    "experiment_name": "params:experiment_name",
                     "experiment_config": "params:experiment_config",
                     "target_binarized": "target_binarized",
                     "metric_config": "params:metric_config",
                     "metrics": "params:metrics",
-                    # "project_dict": "project_dict",
-                    # "metrics": "metrics",
                     "predictions": "external_holdout",
                 },
                 outputs="external_holdout_metrics",

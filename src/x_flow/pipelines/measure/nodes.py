@@ -5,14 +5,19 @@ generated using Kedro 0.19.3
 
 import logging
 from functools import partial
-from typing import Any, Callable, List, Optional, TypeAlias, Union
+from typing import Any, Callable, Dict, List, Optional, TypeAlias, Union
 
 # pyright: reportPrivateImportUsage=false
 import datarobot as dr
+from joblib import Parallel, delayed
 import pandas as pd
 from utils.dr_helpers import get_training_predictions
 
-from x_flow.metrics.implementations import GeneralizedF1, MeanSquaredError
+from x_flow.metrics.implementations import (
+    DataRobotMetrics,
+    GeneralizedF1,
+    MeanSquaredError,
+)
 from x_flow.metrics.metrics import MetricFactory
 
 log = logging.getLogger(__name__)
@@ -56,6 +61,7 @@ log = logging.getLogger(__name__)
 
 MetricFactory.register_metric("generalized_f1", GeneralizedF1())
 MetricFactory.register_metric("mean_squared_error", MeanSquaredError())
+MetricFactory.register_metric("datarobot_metrics", DataRobotMetrics())
 
 Metric: TypeAlias = Callable[
     [pd.Series, pd.Series, Optional[pd.DataFrame], Optional[dict], Optional[dict]],
@@ -88,29 +94,14 @@ def _load_and_index(row: pd.Series, columns: Optional[List[str]] = None):
     return combined_df
 
 
-def calculate_custom_metric(
-    actuals: pd.Series,
-    predictions: pd.Series,
-    metric_name: str,
-    experiment_config: dict,
-    metric_config: Optional[dict] = None,
-    extra_data: Optional[pd.DataFrame] = None,
-) -> float:
-    metric = MetricFactory.get_metric(metric_name)
-    return metric.compute(
-        actuals, predictions, extra_data, experiment_config, metric_config
-    )
-
-
 def calculate_metrics(
-    experiment_name: str,
     experiment_config: dict,
     predictions: dict[str, pd.DataFrame],
     metric_config: dict,
     target_binarized: str,
     metrics: List[str],
 ):
-
+    experiment_name = experiment_config["experiment_name"]
     metadata_df = pd.DataFrame([k.split("/") for k in predictions])
     metadata_df.columns = [
         "partition",
@@ -123,28 +114,83 @@ def calculate_metrics(
     all_subgroups = pd.concat(
         metadata_df.apply(partial(_load_and_index, columns=["prediction", target_binarized]), axis=1).tolist(), ignore_index=True  # type: ignore
     )
-    metrics_list = []
-    for group, df in all_subgroups.groupby("data_subset_name"):
+
+    def process_group(
+        data_subset,
+        df,
+        experiment_name,
+        target_binarized,
+        metrics,
+        experiment_config,
+        metric_config,
+    ):
+        # This will store all the metadata for the current group
+        group_metrics_list = []
+
         for (project_id, model_id), model_df in df.groupby(["project_id", "model_id"]):
-            row = {
+            metadata = {
                 "experiment_name": experiment_name,
                 "project_id": project_id,
-                "group": group,
+                "data_subset": data_subset,
                 "model_id": model_id,
             }
             for metric in metrics:
-                metric_value = calculate_custom_metric(
+                metric_instance = MetricFactory.get_metric(metric)
+                metric_value = metric_instance.compute(
                     actuals=model_df[target_binarized],
                     predictions=model_df["prediction"],
-                    metric_name=metric,
                     experiment_config=experiment_config,
                     metric_config=metric_config,
+                    extra_data=model_df,
+                    metadata=metadata,
                 )
 
-                row[metric] = metric_value
-            metrics_list.append(row)
+                metadata.update(metric_value)
+            group_metrics_list.append(metadata)
 
+        return group_metrics_list
+
+    tasks = (
+        delayed(process_group)(
+            data_subset,
+            df,
+            experiment_name,
+            target_binarized,
+            metrics,
+            experiment_config,
+            metric_config,
+        )
+        for data_subset, df in all_subgroups.groupby("data_subset_name")
+    )
+
+    results = Parallel(n_jobs=10)(tasks)
+
+    metrics_list = [item for sublist in results for item in sublist]
     return pd.DataFrame(metrics_list)
+    # metrics_list = []
+    # for data_subset, df in all_subgroups.groupby("data_subset_name"):
+    #     for (project_id, model_id), model_df in df.groupby(["project_id", "model_id"]):
+    #         metadata = {
+    #             "experiment_name": experiment_name,
+    #             "project_id": project_id,
+    #             "data_subset": data_subset,
+    #             "model_id": model_id,
+    #         }
+    #         for metric in metrics:
+    #             metric_instance = MetricFactory.get_metric(metric)
+    #             metric_value = metric_instance.compute(
+    #                 actuals=model_df[target_binarized],
+    #                 predictions=model_df["prediction"],
+    #                 experiment_config=experiment_config,
+    #                 metric_config=metric_config,
+    #                 extra_data=model_df,
+    #                 metadata=metadata,
+    #             )
+
+    #             metadata.update(metric_value)
+    #         metrics_list.append(metadata)
+
+    # return pd.DataFrame(metrics_list)
     # actuals = get_actuals(v, project_dict["target"])
     # for metric in metrics:
     #     metric_value = calculate_custom_metric(
