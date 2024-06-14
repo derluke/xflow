@@ -1,6 +1,15 @@
+import logging
+from typing import Literal, Union
+
+# pyright: reportPrivateImportUsage=false
 import datarobot as dr
 import numpy as np
 import pandas as pd
+
+# check datarobot version with semver
+from semver import VersionInfo
+
+log = logging.getLogger(__name__)
 
 
 class FIRE(dr.Project):
@@ -13,7 +22,9 @@ class FIRE(dr.Project):
 
     def main_feature_reduction(
         self,
-        reduction_method="Simple",
+        reduction_method: Union[
+            Literal["Simple"], Literal["Rang Aggregation"], Literal["DR Reduced"]
+        ] = "Simple",
         start_model_id=None,
         start_featurelist_name=None,
         restart_autopilot=False,
@@ -102,7 +113,7 @@ class FIRE(dr.Project):
             ]
         ), "Argument error: reduction_method must be 'Simple', 'DR Reduced' or 'Rank Aggregation'"
 
-        project_partition = project.partition["cv_method"]
+        project_partition = project.partition["cv_method"]  # type: ignore
 
         ratio = initial_impact_reduction_ratio
         model_search_params = best_model_search_params
@@ -118,14 +129,14 @@ class FIRE(dr.Project):
                 # #### GET BEST MODEL #####
                 # #########################
                 if start_model_id and runs == 0:
-                    best_model = dr.DatetimeModel.get(self.id, start_model_id)
+                    best_model = dr.DatetimeModel.get(self.id, start_model_id)  # type: ignore
                 else:
                     best_model = self.get_best_models(
                         metric=main_scoring_metric,
                         by_partition=partition,
                         start_featurelist_name=start_featurelist_name,
                         model_search_params=model_search_params,
-                    ).values[0]
+                    ).values[0]  # type: ignore
 
                 # #############################
                 # #### GET FEATURE IMPACT #####
@@ -152,7 +163,7 @@ class FIRE(dr.Project):
                 len_new_feature_list = len(new_feature_list)
                 # if new feature list length is the same as before -> reduce more by reducing the ratio
                 if feature_impacts.shape[0] == len_new_feature_list:
-                    print(
+                    log.info(
                         "new feature list is the same as previous one... Use new ratio=ratio^2"
                     )
                     ratio *= ratio
@@ -187,8 +198,10 @@ class FIRE(dr.Project):
                     )
 
                 except dr.errors.ClientError as e:
-                    print(f"Feature list named {new_featurelist_name} already exists")
-                    print(e.json["message"])
+                    log.info(
+                        f"Feature list named {new_featurelist_name} already exists"
+                    )
+                    log.info(e.json["message"])
                     if (
                         e.json["message"]
                         == f"Feature list named {new_featurelist_name} already exists"
@@ -199,12 +212,12 @@ class FIRE(dr.Project):
                             if fl.name == new_featurelist_name
                         ][0]
                     else:
-                        print(e)
-                        print("Apply ratio decay and try again")
+                        log.info(e)
+                        log.info("Apply ratio decay and try again")
                         ratio *= ratio
                         raise (e)
 
-                print(
+                log.info(
                     "Old feature list size:{}, new feature list size:{}".format(
                         feature_impacts.shape[0], len_new_feature_list
                     )
@@ -214,39 +227,38 @@ class FIRE(dr.Project):
                     # ####################################################
                     # #### RESTART AUTOPILOT ON THE NEW FEATURE LIST #####
                     # ####################################################
-                    project.start_autopilot(featurelist_id=new_fl.id)
-                    print("New autopilot is kicked-off")
+                    project.start_autopilot(featurelist_id=new_fl.id)  # type: ignore
+                    log.info("New autopilot is kicked-off")
                     project.wait_for_autopilot()
 
-                else:
+                elif project_partition != "datetime":
                     # ###############################################
                     # #### TRAIN MODEL ON THE NEW FEATURE LIST ######
                     # ###############################################
                     # Train new datetime model
-                    if project_partition != "datetime":
-                        print(project_partition)
-                        raise NotImplementedError(
-                            "Datetime partitioned projects support is to be implemented"
+                    log.info(project_partition)
+                    raise NotImplementedError(
+                        "Datetime partitioned projects support is to be implemented"
+                    )
+                    # model_job_id = best_model.train_datetime(training_duration=best_model.training_duration,
+                    #                                         featurelist_id=new_feature_list.id)
+                else:
+                    try:
+                        model_job = best_model.train_datetime(
+                            featurelist_id=new_fl.id,
+                            training_duration=best_model.training_duration,
                         )
-                        # model_job_id = best_model.train_datetime(training_duration=best_model.training_duration,
-                        #                                         featurelist_id=new_feature_list.id)
-                    else:
-                        try:
-                            model_job = best_model.train_datetime(
-                                featurelist_id=new_fl.id,
-                                training_duration=best_model.training_duration,
-                            )
-                            model_job.get_result_when_complete()
-                        except dr.errors.ClientError as e:
-                            if e.json["errorName"] == "JobAlreadyAdded":
-                                pass
-                            else:
-                                print(e, "\nThis project type is not supported yet")
+                        model_job.get_result_when_complete()
+                    except dr.errors.ClientError as e:
+                        if e.json["errorName"] == "JobAlreadyAdded":
+                            pass
+                        else:
+                            log.info(e, "\nThis project type is not supported yet")
 
-                        #                     new_model = dr.DatetimeModel.get(project.id,
-                        # model_job.get_result_when_complete().id)
+                    #                     new_model = dr.DatetimeModel.get(project.id,
+                    # model_job.get_result_when_complete().id)
 
-                        print("New model training is completed....")
+                    log.info("New model training is completed....")
 
             # method Rank Aggregation
             else:
@@ -266,7 +278,7 @@ class FIRE(dr.Project):
                     )
                     start_featurelist_name = new_featurelist_name
                 except dr.errors.ClientError as e:
-                    print(e, "\nTrying again")
+                    log.info(e, "\nTrying again")
                     ratio *= ratio
                     continue
 
@@ -289,18 +301,18 @@ class FIRE(dr.Project):
                 # repeat one more time
                 lifes -= 1
                 ratio *= ratio
-                print(
+                log.info(
                     "new model is worse.\nRepeat again. Decay Ratio for Simple and DR reduced methods"
                 )
 
             if lifes < 0:
-                print(
+                log.info(
                     "new model is worse.\n AUTOMATIC FEATURE SELECTION PROCESS HAS BEEN STOPPED"
                 )
                 return new_best_model
 
             runs += 1
-            print("Run ", runs, " completed")
+            log.info(f"Run {runs} completed")
 
         return new_best_model
 
@@ -346,21 +358,26 @@ class FIRE(dr.Project):
 
         if not metric:
             metric = self.metric
-            if "Weighted" in metric:
+            if "Weighted" in metric:  # type: ignore
                 desc_metric_list = ["Weighted " + metric for metric in desc_metric_list]
 
         asc_flag = False if metric in desc_metric_list else True
-        all_models = self.get_models(
-            with_metric=metric, search_params=model_search_params
-        )
+        if VersionInfo.parse(dr.__version__) < VersionInfo(3, 4, 0):
+            all_models = self.get_models(
+                with_metric=metric, search_params=model_search_params
+            )
+        else:
+            all_models = self.get_model_records(
+                with_metric=metric, training_filters=model_search_params
+            )
         if self.is_datetime_partitioned:
             all_datetime_models = {m.id: m for m in self.get_datetime_models()}
 
         models_df = pd.DataFrame(
             [
                 [
-                    model.metrics[metric]["crossValidation"],
-                    model.metrics[metric]["validation"],
+                    model.metrics[metric]["crossValidation"],  # type: ignore
+                    model.metrics[metric]["validation"],  # type: ignore
                     model.model_category,
                     model.is_frozen,
                     model.featurelist_name,
@@ -379,7 +396,7 @@ class FIRE(dr.Project):
                 "model",
             ],
         ).sort_values([by_partition], ascending=asc_flag, na_position="last")
-        # print(models_df.head(5))
+        # log.info(models_df.head(5))
         if start_featurelist_name:
             return_list = models_df.loc[
                 (
@@ -389,7 +406,7 @@ class FIRE(dr.Project):
                 ),
                 "model",
             ]
-            # print(return_list)
+            # log.info(return_list)
             return return_list
         else:
             return models_df.loc[
@@ -485,7 +502,7 @@ class FIRE(dr.Project):
         num_features_acc = 0
         # in some cases, the 2nd element of the 3-tuple is not normalized
         # it is safer to directly normalize the other 1st element instead, and use that always
-        normalized_impact = np.array([np.float(t[2]) for t in impact])
+        normalized_impact = np.array([np.float(t[2]) for t in impact])  # type: ignore
         normalized_impact /= np.sum(normalized_impact)
 
         # collect the minimum number of features to meet accumulated impact
@@ -496,7 +513,7 @@ class FIRE(dr.Project):
             num_features_acc += 1
 
         # number of features used should be minimum of the following numbers
-        #     print(constant_features, max(min_features, feature_ratio * len(impact)), num_features_acc)
+        #     log.info(constant_features, max(min_features, feature_ratio * len(impact)), num_features_acc)
 
         feat_cnt = min(
             constant_features,
@@ -560,7 +577,7 @@ class FIRE(dr.Project):
             model_search_params=model_search_params,
         )
 
-        models = models.values[:n_models]
+        models = models.values[:n_models]  # type: ignore
 
         all_impact = pd.DataFrame()
 
@@ -608,7 +625,7 @@ class FIRE(dr.Project):
 
         # use Simple fl function to get number of features to use
         # based on sum of impact
-        # print(all_impact.head())
+        # log.info(all_impact.head())
         all_impact_agg = (
             all_impact.groupby("featureName")[
                 ["impactNormalized", "impactUnnormalized"]
@@ -652,25 +669,23 @@ class FIRE(dr.Project):
                     if fl.name == f"Reduced FL by Median Rank, top{n_feats}"
                 ][0]
                 featurelist_id = featurelist.id
+                if VersionInfo.parse(dr.__version__) < VersionInfo(3, 4, 0):
+                    all_models = self.get_models()
+                else:
+                    all_models = self.get_model_records()
                 if (
-                    len(
-                        [
-                            m
-                            for m in self.get_models()
-                            if m.featurelist_id == featurelist_id
-                        ]
-                    )
+                    len([m for m in all_models if m.featurelist_id == featurelist_id])
                     > 3
                 ):
-                    print("skipping autopilot for " + featurelist.name)
+                    log.info(f"skipping autopilot for {featurelist.name}")
                     return models[0], featurelist.name
 
         self.start_autopilot(
-            featurelist_id=featurelist_id,
+            featurelist_id=featurelist_id,  # type: ignore
             blend_best_models=False,
             prepare_model_for_deployment=False,
         )
-        print("New autopilot is kicked-off")
+        log.info("New autopilot is kicked-off")
         self.wait_for_autopilot()
         # return the previous best model to process the stop criteria
         return models[0], featurelist.name
