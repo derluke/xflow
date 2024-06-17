@@ -113,7 +113,7 @@ def _hash_pandas(df: pd.DataFrame) -> str:
 
 def get_training_predictions(
     model: dr.Model, data_subset: dr.enums.DATA_SUBSET
-) -> pd.DataFrame:
+) -> Optional[pd.DataFrame]:
     """
     Get the training predictions for a model
     :param model: DataRobot model object
@@ -139,7 +139,7 @@ def get_training_predictions(
             for tp in all_training_predictions
             if tp.model_id == model.id and tp.data_subset == data_subset
         ][0]
-    return tp.get_all_as_dataframe()
+    return tp.get_all_as_dataframe()  # type: ignore
 
 
 def get_external_holdout_predictions(
@@ -231,7 +231,7 @@ def predict(model: dr.Model, df: pd.DataFrame) -> pd.DataFrame:
     :param df: pandas dataframe to make predictions on
     :return: pandas dataframe of predictions
     """
-    project = dr.Project.get(model.project_id)
+    project = dr.Project.get(model.project_id)  # type: ignore
 
     ds = upload_dataset(project, df)
     pred_job = model.request_predictions(ds.id)
@@ -284,11 +284,13 @@ def calculate_stats(  # noqa: PLR0912,PLR0915
 
     if isinstance(models, int):
         if project.is_datetime_partitioned:
-            models = project.get_datetime_models()[:models]
+            model_list = project.get_datetime_models()[:models]  # type: ignore
         else:
-            models = [m for m in project.get_models()[:models] if m]  # type: ignore
+            model_list = [m for m in project.get_models()[:models] if m]  # type: ignore
+    else:
+        model_list = models
 
-    def score_backtests(m: dr.DatetimeModel) -> dr.Job:
+    def score_backtests(m: dr.DatetimeModel) -> Optional[dr.Job]:
         try:
             return m.score_backtests()
         except Exception as e:  # pylint: disable=broad-except
@@ -296,7 +298,7 @@ def calculate_stats(  # noqa: PLR0912,PLR0915
                 log.info(e)
             return None
 
-    def calculate_shap_impact(m: dr.Model) -> dr.Job:
+    def calculate_shap_impact(m: dr.Model) -> Optional[dr.Job]:
         try:
             return dr.ShapImpact.create(project_id=m.project_id, model_id=m.id)
         except Exception as e:  # pylint: disable=broad-except
@@ -304,28 +306,30 @@ def calculate_stats(  # noqa: PLR0912,PLR0915
                 log.info(e)
             return None
 
-    def cross_validate(m: dr.Model) -> dr.Job:
+    def cross_validate(m: dr.Model) -> Optional[dr.Job]:
         try:
-            return m.cross_validate()
+            return m.cross_validate()  # type: ignore
         except Exception as e:  # pylint: disable=broad-except
             if verbose:
                 log.info(e)
             return None
 
-    def request_feature_impact(m: dr.Model) -> dr.Job:
+    def request_feature_impact(m: dr.Model) -> Optional[dr.Job]:
         try:
-            return m.request_feature_impact()
+            return m.request_feature_impact()  # type: ignore
         except Exception as e:  # pylint: disable=broad-except
             if verbose:
                 log.info(e)
             return None
 
-    def request_feature_effect(m: dr.Model, backtest: Optional[str] = None) -> dr.Job:
+    def request_feature_effect(
+        m: dr.Model, backtest: Optional[str] = None
+    ) -> Optional[dr.Job]:
         try:
             if backtest is None:
                 return m.request_feature_effect()
             else:
-                return m.request_feature_effect(backtest)
+                return m.request_feature_effect(backtest)  # type: ignore
         except Exception as e:  # pylint: disable=broad-except
             if verbose:
                 log.info(e)
@@ -333,9 +337,9 @@ def calculate_stats(  # noqa: PLR0912,PLR0915
 
     def compute_datetime_trend_plots(
         m: dr.DatetimeModel, backtest: Union[str, int], source: Optional[str]
-    ) -> dr.Job:
+    ) -> Optional[dr.Job]:
         try:
-            return m.compute_datetime_trend_plots(backtest, source)
+            return m.compute_datetime_trend_plots(backtest, source)  # type: ignore
         except Exception as e:  # pylint: disable=broad-except
             if verbose:
                 log.info(e)
@@ -343,25 +347,25 @@ def calculate_stats(  # noqa: PLR0912,PLR0915
 
     # calculate FI for all models
     jobs = []
-    for m in models:
+    for m in model_list:
         jobs.append(request_feature_impact(m))
     wait_for_jobs(jobs)
 
     jobs = []
-    for m in models:
+    for m in model_list:
         jobs.append(calculate_shap_impact(m))
     wait_for_jobs(jobs)
 
     if project.is_datetime_partitioned:
         dtp = dr.DatetimePartitioning.get(project.id)
         jobs = []
-        jobs += [score_backtests(m) for m in models]
+        jobs += [score_backtests(m) for m in model_list]
         wait_for_jobs(jobs)
 
         jobs = []
-        models = [dr.DatetimeModel.get(project.id, m.id) for m in models]  # type: ignore
-        for m in models:
-            for i in list(range(dtp.number_of_backtests)) + [
+        model_list = [dr.DatetimeModel.get(project.id, m.id) for m in model_list]  # type: ignore
+        for m in model_list:
+            for i in list(range(dtp.number_of_backtests)) + [  # type: ignore
                 dr.enums.DATA_SUBSET.HOLDOUT
             ]:
                 jobs.append(request_feature_effect(m, str(i)))
@@ -378,7 +382,7 @@ def calculate_stats(  # noqa: PLR0912,PLR0915
                                 log.info(f"{m.id}, {i}, {source}, failed, {e}")
     else:
         jobs = []
-        for m in models:
+        for m in model_list:
             jobs.append(cross_validate(m))
             jobs.append(request_feature_effect(m))
 

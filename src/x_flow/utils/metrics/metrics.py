@@ -21,7 +21,7 @@ class Metric(ABC):
         self.higher_is_better = higher_is_better
 
     @abstractmethod
-    def compute(
+    def compute(  # noqa: PLR0913
         self,
         actuals: pd.Series,
         predictions: pd.Series,
@@ -86,7 +86,7 @@ class Metric(ABC):
                     op_fun = Operator(operator=binarize_operator).apply_operation(
                         binarize_threshold
                     )
-                return op_fun(predictions)
+                return op_fun(predictions)  # type: ignore
 
         return predictions
 
@@ -104,3 +104,31 @@ class MetricFactory:
         if not metric:
             raise ValueError(f"Metric '{name}' not registered")
         return metric
+
+
+def get_otv_metrics(metrics_dict: Dict, backtest_index: int) -> Dict[str, float]:
+    otv_metrics = {}
+    for metric_name, stats in metrics_dict.items():
+        if "backtestingScores" in stats:
+            try:
+                otv_metrics[f"{metric_name}"] = stats["backtestingScores"][
+                    backtest_index
+                ]
+            except IndexError:
+                log.warning(
+                    f"Backtest index {backtest_index} is out of range for metric {metric_name}"
+                )
+                otv_metrics[f"{metric_name}"] = None
+        else:
+            otv_metrics[f"{metric_name}"] = None
+    return otv_metrics
+
+
+def get_holdout_metrics(metrics_dict: Dict) -> Dict[str, float]:
+    holdout_metrics = {}
+    for metric_name, stats in metrics_dict.items():
+        try:
+            holdout_metrics[f"{metric_name}"] = stats["holdout"]
+        except KeyError:
+            holdout_metrics[f"{metric_name}"] = None
+    return holdout_metrics
