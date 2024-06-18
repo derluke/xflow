@@ -3,6 +3,7 @@ This is a boilerplate pipeline 'experiment'
 generated using Kedro 0.19.3
 """
 
+from dataclasses import asdict
 import logging
 import os
 from typing import Any, Dict, List, Optional, Tuple, Union
@@ -16,17 +17,27 @@ from datarobotx.idp.common.hashing import get_hash
 from datarobotx.idp.datasets import get_or_create_dataset_from_df
 from filelock import FileLock
 from joblib import Parallel, delayed
-from utils.dr_helpers import (
+
+from x_flow.utils.data import (
+    Data,
+    PredictionData,
+    TrainingData,
+    ValidationData,
+    ValidationPredictionData,
+)
+from x_flow.utils.dr_helpers import (
     RateLimiterSemaphore,
     get_external_holdout_predictions,
     get_models,
     get_training_predictions,
     wait_for_jobs,
 )
-from utils.operator import Operator
+from x_flow.utils.preprocessing.binary_transformer import BinarizeData
+from x_flow.utils.preprocessing.data_preprocessor import DataPreprocessor, Identity
+from x_flow.utils.preprocessing.fire import FIRE
 
 try:
-    from datarobot import UseCase
+    from datarobot import UseCase  # type: ignore
 except:
 
     class UseCase:
@@ -101,50 +112,75 @@ def unpack_row_to_args(
     return arg_values_dict
 
 
-def binarize_data_if_specified(  # noqa: PLR0913
-    input_data: pd.DataFrame,
-    target: str,
-    binarize_threshold=0.0,
-    binarize_drop_regression_target=True,
-    binarize_operator: Optional[str] = None,
-    binarize_new_target_name="target_cat",
-) -> tuple[pd.DataFrame, str]:
-    """helper function: binarize a target variable for classification"""
-    categorical_data = input_data.copy()
-    if binarize_operator is None:
-        return input_data, target
-    op_fun = Operator(operator=binarize_operator).apply_operation(binarize_threshold)
+# def binarize_data_if_specified(  # noqa: PLR0913
+#     input_data: pd.DataFrame,
+#     target: str,
+#     binarize_threshold=0.0,
+#     binarize_drop_regression_target=True,
+#     binarize_operator: Optional[str] = None,
+#     binarize_new_target_name="target_cat",
+# ) -> tuple[pd.DataFrame, str]:
+#     """helper function: binarize a target variable for classification"""
+#     if binarize_operator is None:
+#         return input_data, target
 
-    categorical_data[binarize_new_target_name] = categorical_data[target].apply(op_fun)
-    if binarize_drop_regression_target:
-        categorical_data.drop(columns=[target], inplace=True)
+#     transformer = BinarizeData(
+#         threshold=binarize_threshold,
+#         operator=binarize_operator,
+#         binarize_drop_regression_target=binarize_drop_regression_target,
+#         binarize_new_target_name=binarize_new_target_name,
+#     )
+#     return transformer.fit_transform(input_data)
+#     categorical_data = input_data.copy()
 
-    return categorical_data, binarize_new_target_name
+#     op_fun = Operator(operator=binarize_operator).apply_operation(binarize_threshold)
+
+#     categorical_data[binarize_new_target_name] = categorical_data[target].apply(op_fun)
+#     if binarize_drop_regression_target:
+#         categorical_data.drop(columns=[target], inplace=True)
+
+#     return categorical_data, binarize_new_target_name
 
 
-def binarize_data_node(
-    input_data: pd.DataFrame, target: str, binarize_data_config: Dict
-) -> tuple[pd.DataFrame, str]:
+def preprocessing_fit_transform(data: Data, *transformations: DataPreprocessor) -> Data:
+    for transformation in transformations:
+        data = transformation.fit_transform(data)
+    return data
 
-    return binarize_data_if_specified(
-        input_data=input_data,
-        target=target,
-        **binarize_data_config if binarize_data_config else {},
-    )
+
+def preprocessing_transform(data: Data, *transformations: DataPreprocessor) -> Data:
+    for transformation in transformations:
+        data = transformation.transform(data)
+    return data
+
+
+def register_binarize_preprocessor(binarize_data_config: Dict) -> DataPreprocessor:
+    if binarize_data_config is None:
+        transformer = Identity()
+    else:
+        transformer = BinarizeData(**binarize_data_config)
+    return transformer
+
+
+def register_fire_preprocessor(fire_config: Dict) -> DataPreprocessor:
+    if fire_config is None:
+        transformer = Identity()
+    else:
+        transformer = FIRE(**fire_config)
+    return transformer
 
 
 def get_or_create_dataset_from_df_with_lock(
     token: str,
     endpoint: str,
     use_case_id: str,
-    df: pd.DataFrame,
+    df: Data,
     name: str,
-    group_data: Optional[Dict] = None,
-) -> Tuple[Dict[str, str], Dict[str, pd.DataFrame]]:
+) -> Dict[str, str]:
     # log.warning(f"Grouping data by {group_data['groupby_column']} for experiment {name}")
 
     if use_case_id == "not_supported":
-        use_case_id = None
+        use_case_id = None  # type: ignore
 
     def _get_or_create_dataset_from_df_with_lock(
         use_case_id: str,
@@ -152,7 +188,6 @@ def get_or_create_dataset_from_df_with_lock(
         name: str,
         group: Optional[str] = None,
     ) -> str:
-
         name = f"{name}_{group}" if (group != "__all_data__") else name
         df_token = get_hash(df, use_case_id, name)
 
@@ -168,16 +203,16 @@ def get_or_create_dataset_from_df_with_lock(
             )
         return df_id
 
-    if group_data is None or group_data["groupby_column"] is None:
-        df_dict = {"__all_data__": df}
-    else:
-        df_dict = {
-            group: group_df
-            for group, group_df in df.groupby(group_data["groupby_column"])
-        }
-
+    # if group_data is None or group_data["groupby_column"] is None:
+    #     df_dict = {"__all_data__": df.rendered_df}
+    # else:
+    #     df_dict = {
+    #         group: group_df
+    #         for group, group_df in df.rendered_df.groupby(group_data["groupby_column"])
+    #     }
+    group_data = df.get_partitions()
     jobs = []
-    for group, group_df in df_dict.items():
+    for group, group_df in group_data.items():
         jobs.append(
             delayed(_get_or_create_dataset_from_df_with_lock)(
                 use_case_id=use_case_id,
@@ -190,22 +225,22 @@ def get_or_create_dataset_from_df_with_lock(
     results = Parallel(n_jobs=10, backend="threading")(jobs)
 
     return_dict = {}
-    for group, result in zip(df_dict.keys(), results):
+    for group, result in zip(group_data.keys(), results):
         return_dict[group] = str(result)
 
-    return return_dict, df_dict
+    return return_dict
 
 
 def run_autopilot(
     token: str,
     endpoint: str,
-    target_name: str,
+    df: TrainingData,
     dataset_dict: Dict[str, str],
     use_case_id: str,
     experiment_config: Dict,
 ) -> Dict[str, str]:
     if use_case_id == "not_supported":
-        use_case_id = None
+        use_case_id = None  # type: ignore
 
     def _get_or_create_autopilot_run(
         name: str,
@@ -245,7 +280,7 @@ def run_autopilot(
         if group != "__all_data__":
             project_name = f"{project_name} ({group})"
         log.info(f"Experiment Config: {experiment_config}")
-        experiment_config["analyze_and_model"]["target"] = target_name
+        experiment_config["analyze_and_model"]["target"] = df.target_column
 
         jobs[group].append(
             delayed(_get_or_create_autopilot_run)(
@@ -337,13 +372,13 @@ def calculate_backtests(
 
 def get_backtest_predictions(
     project_dict: Dict[str, str],
-    df_dict: Dict[str, pd.DataFrame],
-    backtests_completed: bool,
+    df: ValidationData,
+    # backtests_completed: bool,
     data_subset: Optional[
         Union[dr.enums.DATA_SUBSET, str]
     ] = dr.enums.DATA_SUBSET.ALL_BACKTESTS,
     max_models_per_project: int = 5,
-) -> Dict[str, pd.DataFrame]:
+) -> Dict[str, ValidationPredictionData]:
     """
     Get backtest predictions for each model in given projects using parallel processing.
 
@@ -359,19 +394,23 @@ def get_backtest_predictions(
         and values as DataFrames with predictions.
     """
 
-    if not backtests_completed:
-        raise ValueError("Backtests have not been completed")
+    # if not backtests_completed:
+    #     raise ValueError("Backtests have not been completed")
 
     def _get_backtest_predictions(
         model: dr.Model, group: str
-    ) -> Dict[str, pd.DataFrame]:
-        training_predictions = get_training_predictions(model, data_subset)
-        training_data = df_dict[group].copy()
-        merged_predictions = merge_predictions(training_predictions, training_data)
-        return {
-            f"{group}/{model.project_id}/{model.id}/{partition_id}": df
-            for partition_id, df in merged_predictions.groupby("partition_id")
-        }
+    ) -> Dict[str, ValidationPredictionData]:
+        training_predictions = get_training_predictions(model, data_subset)  # type: ignore
+        training_data = df.get_partitions()[group].copy()
+        merged_predictions = merge_predictions(training_predictions, training_data)  # type: ignore
+
+        result_dict = {}
+        for partition, group_df in merged_predictions.groupby("partition_id"):
+            result = ValidationPredictionData(**asdict(df))
+            result.df = group_df
+            result_dict[f"{group}/{model.project_id}/{model.id}/{partition}"] = result
+
+        return result_dict
 
     tasks = (
         delayed(_get_backtest_predictions)(model, group)
@@ -390,11 +429,9 @@ def get_backtest_predictions(
 
 def get_external_predictions(
     project_dict: Dict[str, str],
-    external_holdout: pd.DataFrame,
-    partition_column: Optional[str] = None,
+    external_holdout: ValidationData,
     max_models_per_project: int = 5,
-    group_data: Optional[Dict] = None,
-) -> Dict[str, pd.DataFrame]:
+) -> Dict[str, ValidationPredictionData]:
     """
     Retrieves external predictions for models across multiple projects, using external holdout data.
 
@@ -411,33 +448,15 @@ def get_external_predictions(
 
     def _get_external_predictions(
         model: dr.Model, prediction_df: pd.DataFrame, group: str
-    ) -> Dict[str, pd.DataFrame]:
+    ) -> dict[str, ValidationPredictionData]:
         external_prediction_df = get_external_holdout_predictions(model, prediction_df)
         merged_predictions = merge_predictions(external_prediction_df, prediction_df)
-        # Default partition ID to "external_holdout" if the column is not found
-        merged_predictions["partition_id"] = merged_predictions.get(
-            partition_column, "external_holdout"
-        )
-        return {
-            f"{group}/{model.project_id}/{model.id}/{partition_id}": df
-            for partition_id, df in merged_predictions.groupby("partition_id")
-        }
 
-    # Group data based on specified group data or use the whole data as a single group
-    log.info(f"Group data: {group_data}")
-    if (
-        group_data is not None
-        and "groupby_column" in group_data
-        and group_data["groupby_column"] is not None
-    ):
-        df_dict = {
-            group: group_df
-            for group, group_df in external_holdout.groupby(
-                group_data["groupby_column"]
-            )
-        }
-    else:
-        df_dict = {"__all_data__": external_holdout}
+        result = ValidationPredictionData(**asdict(external_holdout))
+        result.df = merged_predictions
+        return {f"{group}/{model.project_id}/{model.id}/external_holdout": result}
+
+    df_dict = external_holdout.get_partitions()
 
     # Fetch models and prepare tasks for parallel processing
     tasks = (

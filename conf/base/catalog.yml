@@ -33,36 +33,47 @@ autopilot_run:
 experiment.backtests:
   type: partitions.PartitionedDataset
   path: data/outputs/${itertime_params:experiment_name}/backtests/
-  dataset: pandas.CSVDataset
+  dataset: 
+    type: x_flow.utils.data.XFlowDataset
+    load_args:
+      load_class: "ValidationPredictionData"
   filename_suffix: ".csv"
 
 experiment.holdouts:
   type: partitions.PartitionedDataset
   path: data/outputs/${itertime_params:experiment_name}/holdout/
-  dataset: pandas.CSVDataset
+  dataset: 
+    type: x_flow.utils.data.XFlowDataset
+    load_args:
+      load_class: "ValidationPredictionData"
   filename_suffix: ".csv"
 
 experiment.external_holdout:
   type: partitions.PartitionedDataset
   path: data/outputs/${itertime_params:experiment_name}/external_holdout/
-  dataset: pandas.CSVDataset
+  dataset: 
+    type: x_flow.utils.data.XFlowDataset
+    load_args:
+      load_class: "ValidationPredictionData"
   filename_suffix: ".csv"
 
 experiment.backtests_grouped:
   type: partitions.PartitionedDataset
-  path: data/outputs/grouped/backtests/
-  dataset: pandas.CSVDataset
+  path: data/outputs/simple_NC_BC/backtests/
+  dataset: 
+    type: x_flow.utils.data.XFlowDataset
+    load_args:
+      load_class: "ValidationPredictionData"
   filename_suffix: ".csv"
-
 # experiment.project_dict:
 #   type: partitions.PartitionedDataset
 #   path: data/outputs/${itertime_params:experiment_name}/project_dict/
 #   dataset: pickle.PickleDataset
 #   filename_suffix: ".pkl"
 
-experiment.target_binarized:
-  type: kedro_datasets.text.TextDataset
-  filepath: data/outputs/${itertime_params:experiment_name}/target_binarized.txt
+# experiment.target_binarized:
+#   type: kedro_datasets.text.TextDataset
+#   filepath: data/outputs/${itertime_params:experiment_name}/target_binarized.txt
 
 measure.holdout_metrics:
   type: kedro_datasets.pandas.CSVDataset

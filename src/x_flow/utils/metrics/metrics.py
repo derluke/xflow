@@ -3,7 +3,7 @@ from abc import ABC, abstractmethod
 from typing import Dict, Optional
 
 import pandas as pd
-from utils.operator import Operator
+from x_flow.utils.operator import Operator
 
 log = logging.getLogger(__name__)
 

@@ -50,7 +50,7 @@ def register_pipelines() -> Dict[str, Pipeline]:
         create_measure_pipeline(),
         namespace="measure",
         inputs={
-            "target_binarized": "experiment.target_binarized",
+            # "target_binarized": "experiment.target_binarized",
             "holdouts": "experiment.holdouts",
             "backtests": "experiment.backtests",
             "external_holdout": "experiment.external_holdout",

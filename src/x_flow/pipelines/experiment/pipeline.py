@@ -1,6 +1,6 @@
 try:
-    from datarobot import UseCase
-    from datarobotx.idp.use_cases import get_or_create_use_case
+    from datarobot import UseCase  # type: ignore
+    from datarobotx.idp.use_cases import get_or_create_use_case  # type: ignore
 except ImportError:
 
     def get_or_create_use_case(*args, **kwags):
@@ -10,12 +10,17 @@ except ImportError:
 from kedro.pipeline import Pipeline, node
 from kedro.pipeline.modular_pipeline import pipeline
 
+from x_flow.utils.data import TrainingData, ValidationData
+
 from .nodes import (
-    binarize_data_node,
     calculate_backtests,
     get_backtest_predictions,
     get_external_predictions,
     get_or_create_dataset_from_df_with_lock,
+    preprocessing_fit_transform,
+    preprocessing_transform,
+    register_binarize_preprocessor,
+    register_fire_preprocessor,
     run_autopilot,
     unlock_holdouts,
 )
@@ -35,23 +40,54 @@ def create_pipeline(**kwargs) -> Pipeline:
                 name="get_or_create_use_case",
             ),
             node(
-                func=binarize_data_node,
+                name="load_raw_data",
+                func=lambda df, target_column, partition_column: TrainingData(
+                    df=df,
+                    target_column=target_column,
+                    partition_column=partition_column,
+                ),
                 inputs={
-                    "input_data": "raw_data_train",
-                    "target": "params:experiment_config.analyze_and_model.target",
-                    "binarize_data_config": "params:experiment_config.binarize_data_config",
+                    "df": "raw_data_train",
+                    "target_column": "params:experiment_config.analyze_and_model.target",
+                    "partition_column": "params:experiment_config.partition_column",
                 },
-                outputs=["data_binarized", "target_binarized"],
-                name="binarize_data",
+                outputs="data_train",
             ),
             node(
-                func=lambda use_case_name, binarize_data_config: f"{use_case_name}{'_'+str(binarize_data_config) if binarize_data_config and binarize_data_config.get('binarize_operator') else ''}",
+                name="register_binarize_preprocessor",
+                func=register_binarize_preprocessor,
+                inputs={
+                    "binarize_data_config": "params:experiment_config.binarize_data_config",
+                },
+                outputs="binarize_data_transformer",
+            ),
+            node(
+                name="register_fire_preprocessor",
+                func=register_fire_preprocessor,
+                inputs={
+                    "fire_config": "params:experiment_config.fire_config",
+                },
+                outputs="fire_transformer",
+            ),
+            node(
+                name="apply_preprocessing",
+                func=preprocessing_fit_transform,
+                inputs=[
+                    "data_train",
+                    "binarize_data_transformer",
+                    "fire_transformer",
+                ],
+                outputs="data_train_transformed",
+            ),
+            node(
+                name="name_dataset",
+                func=lambda use_case_name,
+                binarize_data_config: f"{use_case_name}{'_'+str(binarize_data_config) if binarize_data_config and binarize_data_config.get('binarize_operator') else ''}",
                 inputs={
                     "use_case_name": "params:use_case_name",
                     "binarize_data_config": "params:experiment_config.binarize_data_config",
                 },
                 outputs="dataset_name",
-                name="name_dataset",
             ),
             node(
                 func=get_or_create_dataset_from_df_with_lock,
@@ -59,11 +95,10 @@ def create_pipeline(**kwargs) -> Pipeline:
                     "token": "params:credentials.datarobot.api_token",
                     "endpoint": "params:credentials.datarobot.endpoint",
                     "use_case_id": "use_case_id",
-                    "df": "data_binarized",
+                    "df": "data_train_transformed",
                     "name": "dataset_name",
-                    "group_data": "params:experiment_config.group_data",
                 },
-                outputs=["experiment_dataset_dict", "df_dict"],
+                outputs="experiment_dataset_dict",
                 name="get_or_create_dataset_from_df_with_lock",
             ),
             node(
@@ -71,7 +106,7 @@ def create_pipeline(**kwargs) -> Pipeline:
                 inputs={
                     "token": "params:credentials.datarobot.api_token",
                     "endpoint": "params:credentials.datarobot.endpoint",
-                    "target_name": "target_binarized",
+                    "df": "data_train_transformed",
                     "use_case_id": "use_case_id",
                     "dataset_dict": "experiment_dataset_dict",
                     "experiment_config": "params:experiment_config",
@@ -98,43 +133,52 @@ def create_pipeline(**kwargs) -> Pipeline:
                 tags=["checkpoint"],
             ),
             node(
-                func=get_backtest_predictions,
+                func=lambda project_dict, df, backtests_completed: backtests_completed
+                and get_backtest_predictions(project_dict, df),
                 inputs={
                     "project_dict": "project_dict",
-                    "df_dict": "df_dict",
+                    "df": "data_train_transformed",
                     "backtests_completed": "backtests_completed",
                 },
                 outputs="backtests",
                 name="get_backtest_predictions",
             ),
             node(
-                func=lambda project_dict, df_dict, backtests_completed: get_backtest_predictions(
-                    project_dict, df_dict, backtests_completed, data_subset="holdout"
-                ),
+                func=lambda project_dict, df, backtests_completed: backtests_completed
+                and get_backtest_predictions(project_dict, df, data_subset="holdout"),
                 inputs={
                     "project_dict": "project_dict",
-                    "df_dict": "df_dict",
+                    "df": "data_train_transformed",
                     "backtests_completed": "backtests_completed",
                 },
                 outputs="holdouts",
                 name="get_holdout_predictions",
             ),
             node(
-                func=binarize_data_node,
+                name="load_raw_data_test",
+                func=lambda df, target_column, partition_column: ValidationData(
+                    df=df,
+                    target_column=target_column,
+                    partition_column=partition_column,
+                ),
                 inputs={
-                    "input_data": "raw_data_test",
-                    "target": "params:experiment_config.analyze_and_model.target",
-                    "binarize_data_config": "params:experiment_config.binarize_data_config",
+                    "df": "raw_data_test",
+                    "target_column": "params:experiment_config.analyze_and_model.target",
+                    "partition_column": "params:experiment_config.partition_column",
                 },
-                outputs=["external_holdout_binarized", "_target_binarized"],
-                name="binarize_data_test",
+                outputs="data_test",
+            ),
+            node(
+                func=preprocessing_transform,
+                inputs=["data_test", "binarize_data_transformer", "fire_transformer"],
+                outputs="data_test_transformed",
+                name="apply_preprocessing_test",
             ),
             node(
                 func=get_external_predictions,
                 inputs={
                     "project_dict": "project_dict",
-                    "external_holdout": "external_holdout_binarized",
-                    "group_data": "params:experiment_config.group_data",
+                    "external_holdout": "data_test_transformed",
                 },
                 outputs="external_holdout",
                 name="get_external_holdout_predictions",

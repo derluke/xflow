@@ -12,7 +12,6 @@ experiment:
       target:
       max_wait: 10000
       worker_count: -1
-
     datetime_partitioning:
       use_time_series: True
       datetime_partition_column: date
@@ -20,8 +19,8 @@ experiment:
       forecast_window_start: 0
       forecast_window_end: 0
     binarize_data_config:
-    group_data:
-      groupby_column:
+    fire_config:
+    partition_column:
   
 
 measure:

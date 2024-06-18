@@ -20,3 +20,11 @@ class DataPreprocessor(ABC):
     def _fit(self, df: Data) -> "DataPreprocessor": ...
     @abstractmethod
     def _transform(self, df: Data) -> Data: ...
+
+
+class Identity(DataPreprocessor):
+    def _fit(self, df: Data) -> "Identity":
+        return self
+
+    def _transform(self, df: Data) -> Data:
+        return df

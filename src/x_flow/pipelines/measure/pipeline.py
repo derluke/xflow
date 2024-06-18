@@ -16,7 +16,7 @@ def create_pipeline(**kwargs) -> Pipeline:
                 func=calculate_metrics,
                 inputs={
                     "experiment_config": "params:experiment_config",
-                    "target_binarized": "target_binarized",
+                    # "target_binarized": "target_binarized",
                     "metric_config": "params:metric_config",
                     "metrics": "params:metrics",
                     "predictions": "holdouts",
@@ -28,7 +28,7 @@ def create_pipeline(**kwargs) -> Pipeline:
                 func=calculate_metrics,
                 inputs={
                     "experiment_config": "params:experiment_config",
-                    "target_binarized": "target_binarized",
+                    # "target_binarized": "target_binarized",
                     "metric_config": "params:metric_config",
                     "metrics": "params:metrics",
                     "predictions": "backtests",
@@ -40,7 +40,7 @@ def create_pipeline(**kwargs) -> Pipeline:
                 func=calculate_metrics,
                 inputs={
                     "experiment_config": "params:experiment_config",
-                    "target_binarized": "target_binarized",
+                    # "target_binarized": "target_binarized",
                     "metric_config": "params:metric_config",
                     "metrics": "params:metrics",
                     "predictions": "external_holdout",

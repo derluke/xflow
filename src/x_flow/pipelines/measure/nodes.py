@@ -11,14 +11,13 @@ from typing import Any, Callable, Dict, List, Optional, TypeAlias, Union
 import datarobot as dr
 import pandas as pd
 from joblib import Parallel, delayed
-from utils.dr_helpers import get_training_predictions
+from x_flow.utils.data import PredictionData, ValidationPredictionData
+from x_flow.utils.dr_helpers import get_training_predictions
 
-from x_flow.metrics.implementations import (
-    DataRobotMetrics,
-    GeneralizedF1,
-    MeanSquaredError,
-)
-from x_flow.metrics.metrics import MetricFactory
+from x_flow.utils.metrics.dr_metrics import DataRobotMetrics
+from x_flow.utils.metrics.generalized_f1 import GeneralizedF1
+from x_flow.utils.metrics.mean_squared_error import MeanSquaredError
+from x_flow.utils.metrics.metrics import MetricFactory
 
 log = logging.getLogger(__name__)
 
@@ -69,13 +68,16 @@ Metric: TypeAlias = Callable[
 ]
 
 
-def _load_and_index(row: pd.Series, columns: Optional[List[str]] = None):
+def _load_and_index(row: pd.Series) -> pd.DataFrame:
     # Load the data from the function stored in the row
     try:
-        loaded_df = row["load_function"]()[columns]
+        load_function: Callable[[], ValidationPredictionData] = row["load_function"]
+        validation_predictions = load_function()
+        rendered_df = validation_predictions.rendered_df
+        loaded_df = rendered_df
     except Exception as e:
         log.error(f"Error loading data: {e}")
-        log.error(row["load_function"]().columns)
+        log.error(row["load_function"]().rendered_df)
         raise e
 
     # Assumption: this function returns a DataFrame
@@ -95,13 +97,14 @@ def _load_and_index(row: pd.Series, columns: Optional[List[str]] = None):
 
 def calculate_metrics(
     experiment_config: dict,
-    predictions: dict[str, pd.DataFrame],
+    predictions: dict[str, ValidationPredictionData],
     metric_config: dict,
-    target_binarized: str,
     metrics: List[str],
 ):
     experiment_name = experiment_config["experiment_name"]
-    metadata_df = pd.DataFrame([k.split("/") for k in predictions])
+    metadata_df = pd.DataFrame(
+        [k.replace(".csv", "").split("/")[:-1] for k in predictions]
+    )
     metadata_df.columns = [
         "partition",
         "project_id",
@@ -110,26 +113,42 @@ def calculate_metrics(
     ]
     metadata_df["load_function"] = predictions.values()
 
-    all_subgroups = pd.concat(
-        metadata_df.apply(
-            partial(_load_and_index, columns=["prediction", target_binarized]), axis=1
-        ).tolist(),
-        ignore_index=True,  # type: ignore
-    )
-
     def process_group(
-        data_subset,
-        df,
-        experiment_name,
-        target_binarized,
-        metrics,
-        experiment_config,
-        metric_config,
+        data_subset: dr.enums.DATA_SUBSET,
+        df: pd.DataFrame,
+        experiment_name: str,
+        metrics: List[str],
+        experiment_config: dict,
+        metric_config: dict,
     ):
         # This will store all the metadata for the current group
         group_metrics_list = []
 
         for (project_id, model_id), model_df in df.groupby(["project_id", "model_id"]):
+            load_functions = model_df["load_function"].to_list()
+            validation_predictions = [
+                load_function() for load_function in load_functions
+            ]
+            all_predictions = []
+            for validation_prediction in validation_predictions:
+                rendered_df = validation_prediction.rendered_df
+                rendered_df["project_id"], rendered_df["model_id"] = (
+                    project_id,
+                    model_id,
+                )
+                all_predictions.append(rendered_df)
+            all_predictions = pd.concat(all_predictions)
+
+            target_column = {
+                validation_prediction.target_column
+                for validation_prediction in validation_predictions
+            }
+
+            if len(target_column) > 1:
+                raise ValueError(f"Multiple target columns found: {target_column}")
+
+            target_column = target_column.pop()
+
             metadata = {
                 "experiment_name": experiment_name,
                 "project_id": project_id,
@@ -139,11 +158,11 @@ def calculate_metrics(
             for metric in metrics:
                 metric_instance = MetricFactory.get_metric(metric)
                 metric_value = metric_instance.compute(
-                    actuals=model_df[target_binarized],
-                    predictions=model_df["prediction"],
+                    actuals=all_predictions[target_column],
+                    predictions=all_predictions["prediction"],
                     experiment_config=experiment_config,
                     metric_config=metric_config,
-                    extra_data=model_df,
+                    extra_data=all_predictions,
                     metadata=metadata,
                 )
 
@@ -158,90 +177,14 @@ def calculate_metrics(
             data_subset,
             df,
             experiment_name,
-            target_binarized,
             metrics,
             experiment_config,
             metric_config,
         )
-        for data_subset, df in all_subgroups.groupby("data_subset_name")
+        for data_subset, df in metadata_df.groupby("data_subset_name")
     )
 
     results = Parallel(n_jobs=10)(tasks)
 
     metrics_list = [item for sublist in results for item in sublist]
     return pd.DataFrame(metrics_list)
-    # metrics_list = []
-    # for data_subset, df in all_subgroups.groupby("data_subset_name"):
-    #     for (project_id, model_id), model_df in df.groupby(["project_id", "model_id"]):
-    #         metadata = {
-    #             "experiment_name": experiment_name,
-    #             "project_id": project_id,
-    #             "data_subset": data_subset,
-    #             "model_id": model_id,
-    #         }
-    #         for metric in metrics:
-    #             metric_instance = MetricFactory.get_metric(metric)
-    #             metric_value = metric_instance.compute(
-    #                 actuals=model_df[target_binarized],
-    #                 predictions=model_df["prediction"],
-    #                 experiment_config=experiment_config,
-    #                 metric_config=metric_config,
-    #                 extra_data=model_df,
-    #                 metadata=metadata,
-    #             )
-
-    #             metadata.update(metric_value)
-    #         metrics_list.append(metadata)
-
-    # return pd.DataFrame(metrics_list)
-    # actuals = get_actuals(v, project_dict["target"])
-    # for metric in metrics:
-    #     metric_value = calculate_custom_metric(
-    #         actuals,
-    #         v["prediction"],
-    #         metric,
-    #         project_dict["experiment_config"],
-    #         other_data=None,
-    #         metric_config=None,
-    #     )
-    #     print(
-    #         f"experiment_name: {experiment_name}, model_id: {project_dict['model_id']}, metric: {metric.__name__}, metric_value: {metric_value}"
-    #     )
-
-
-# def select_candidate_models(
-#     projects: List[dict[str, Any]],
-#     metric: Metric = generalized_f1,
-#     metric_config: Optional[dict] = None,
-#     data_subset: dr.enums.DATA_SUBSET = dr.enums.DATA_SUBSET.HOLDOUT,
-# ) -> List[dr.Model]:
-#     # select best model
-#     candidate_models = []
-#     for row in projects:
-#         experiment_name = row["experiment_name"]
-#         project = dr.Project.get(row["project_id"])
-#         experiment_config = row.get("experiment_config", {})
-#         models = project.get_models()
-#         project_metrics = []
-#         for model in models:
-#             training_predictions = get_training_predictions(model, data_subset)
-#             actuals = training_predictions[
-#                 experiment_config["analyze_and_model"]["target"]
-#             ]
-#             predictions = training_predictions["prediction"]
-#             metric_value = metric(
-#                 actuals, predictions, None, metric_config, experiment_config
-#             )
-#             project_metrics.append(
-#                 {
-#                     "experiment_name": experiment_name,
-#                     "model_id": model.id,
-#                     "project_id": project.id,
-#                     "metric_value": metric_value,
-#                 }
-#             )
-#         best_models = sorted(
-#             project_metrics, key=lambda x: x["metric_value"], reverse=True
-#         )[:5]
-#         candidate_models.extend(best_models)
-#     return candidate_models
