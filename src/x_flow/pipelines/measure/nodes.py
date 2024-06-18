@@ -186,5 +186,5 @@ def calculate_metrics(
 
     results = Parallel(n_jobs=10)(tasks)
 
-    metrics_list = [item for sublist in results for item in sublist]
+    metrics_list = [item for sublist in results for item in sublist]  # type: ignore
     return pd.DataFrame(metrics_list)

@@ -12,7 +12,7 @@ from datarobotx.idp.common.checkpoint_hooks import CheckpointHooks
 # Hooks are executed in a Last-In-First-Out (LIFO) order.
 # HOOKS = (ProjectHooks(),)
 HOOKS = (CredentialsHooks(), CheckpointHooks())
-
+APP_CLASS = "controller.app.XFlowApp"
 
 # Installed plugins for which to disable hook auto-registration.
 # DISABLE_HOOKS_FOR_PLUGINS = ("kedro-viz",)

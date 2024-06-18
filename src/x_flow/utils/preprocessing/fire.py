@@ -2,7 +2,7 @@ from datarobotx.idp.autopilot import get_or_create_autopilot_run
 from datarobotx.idp.common.hashing import get_hash
 from datarobotx.idp.datasets import get_or_create_dataset_from_df
 
-from ..data import Data
+from ..data import Data, TrainingData
 from .data_preprocessor import DataPreprocessor
 from .fire_implementation import FIRE as FireHelper
 
@@ -13,11 +13,11 @@ class FIRE(DataPreprocessor):
         self._token = token
         self._fire_kwargs = kwargs
 
-    def _fit(self, df: Data):
+    def _fit(self, df: TrainingData):
         dataset_id = get_or_create_dataset_from_df(
             endpoint=self._endpoint,
             token=self._token,
-            data_frame=df.rendered_df.to_pandas(),
+            data_frame=df.rendered_df.to_pandas(),  # type: ignore
             name="fire_dataset",
         )
         fire_token = get_hash(**self._fire_kwargs)

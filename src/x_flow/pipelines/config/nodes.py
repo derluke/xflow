@@ -52,10 +52,10 @@ def decode_config(
     # to the correct values
 
     global_parameters = global_parameters.get("experiment_config", {})  # type: ignore
-    log.info(f"Config: {json.dumps(experiment_config, indent=4, sort_keys=True)}")
-    log.info(
-        f"Decoding config with mapping: {json.dumps(param_mapping, indent=4, sort_keys=True)}"
-    )
+    # log.info(f"Config: {json.dumps(experiment_config, indent=4, sort_keys=True)}")
+    # log.info(
+    #     f"Decoding config with mapping: {json.dumps(param_mapping, indent=4, sort_keys=True)}"
+    # )
     log.info(
         f"Global parameters: {json.dumps(global_parameters, indent=4, sort_keys=True)}"
     )
@@ -78,23 +78,23 @@ def decode_config(
                 if param_mapping[experiment_key] not in decoded_config:
                     decoded_config[param_mapping[experiment_key]] = {}
 
-                decoded_config[param_mapping[experiment_key]][
-                    experiment_key
-                ] = experiment_value
+                decoded_config[param_mapping[experiment_key]][experiment_key] = (
+                    experiment_value
+                )
         decoded_configs.append(decoded_config)
 
-    log.info(
-        f"Decoded config pre merge: {json.dumps(decoded_configs, indent=4, sort_keys=True)}"
-    )
+    # log.info(
+    #     f"Decoded config pre merge: {json.dumps(decoded_configs, indent=4, sort_keys=True)}"
+    # )
 
     # deep merge globals into the decoded configs if not overridden
     merged_configs = []
     for decoded_config in decoded_configs:
         merged_config = merge_dicts(decoded_config, global_parameters)
         merged_configs.append(merged_config)
-    log.info(
-        f"Decoded config post merge: {json.dumps(merged_configs, indent=4, sort_keys=True)}"
-    )
+    # log.info(
+    #     f"Decoded config post merge: {json.dumps(merged_configs, indent=4, sort_keys=True)}"
+    # )
 
     def prune_none_values(d: Dict) -> Dict:
         if not isinstance(d, Dict):
@@ -115,6 +115,6 @@ def decode_config(
 
     merged_pruned_dicts = [prune_none_values(d) for d in merged_configs]
     log.info(
-        f"Decoded config post prune: {json.dumps(merged_pruned_dicts, indent=4, sort_keys=True)}"
+        f"Decoded config: {json.dumps(merged_pruned_dicts, indent=4, sort_keys=True)}"
     )
     return merged_pruned_dicts

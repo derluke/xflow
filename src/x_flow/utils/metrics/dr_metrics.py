@@ -99,12 +99,12 @@ class DataRobotMetrics(Metric):
         lock = self.get_lock(project_id, model_id)
         with lock:
             if (project_id, model_id) not in self.metrics_cache:
-                log.info(f"Fetching metrics for model {model_id}")
+                # log.info(f"Fetching metrics for model {model_id}")
                 model = dr.Model.get(project_id, model_id)  # type: ignore
                 metrics = model.metrics
                 self.metrics_cache[(project_id, model_id)] = metrics  # type: ignore
             else:
-                log.info(f"Using cached metrics for model {model_id}")
+                # log.info(f"Using cached metrics for model {model_id}")
                 metrics = self.metrics_cache[(project_id, model_id)]
 
         if re.match(r"^\d+(\.0)?$", data_subset):

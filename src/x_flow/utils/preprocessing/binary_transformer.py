@@ -1,4 +1,4 @@
-from ..data import Data
+from ..data import Data, TrainingData
 from ..operator import Operator
 from .data_preprocessor import DataPreprocessor
 
@@ -19,7 +19,7 @@ class BinarizeData(DataPreprocessor):
     def _fit(self, df: Data):
         return self
 
-    def _transform(self, df: Data) -> Data:
+    def _transform(self, df: TrainingData) -> Data:
         """Helper function: binarize a target variable for classification"""
         categorical_data = df.rendered_df
         target_series = categorical_data[df.target_column]

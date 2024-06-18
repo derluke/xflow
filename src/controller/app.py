@@ -57,7 +57,7 @@ class XFlowApp(AbstractKedroBootApp):
                 delayed(run_namespace_session)(experiment, namespace)
                 for experiment in experiments
             )
-            log.info(f"{namespace}_results: {results}")
+            # log.info(f"{namespace}_results: {results}")
             return results
 
         # leveraging config_loader to manage app's configs
