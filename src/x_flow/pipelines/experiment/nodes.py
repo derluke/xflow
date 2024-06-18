@@ -3,9 +3,10 @@ This is a boilerplate pipeline 'experiment'
 generated using Kedro 0.19.3
 """
 
-from dataclasses import asdict
 import logging
 import os
+from dataclasses import asdict
+import time
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 # pyright: reportPrivateImportUsage=false
@@ -55,14 +56,26 @@ except:
 
 
 # monkey patch datarobot RESTClientObject to use a rate limiter
-rate_limiter = RateLimiterSemaphore(30)
+rate_limiter = RateLimiterSemaphore(25)
 
 client_request_fun = RESTClientObject.request
 
 
 def request_with_rate_limiter(*args, **kwargs):
     rate_limiter.acquire()
-    response = client_request_fun(*args, **kwargs)
+    try:
+        response = client_request_fun(*args, **kwargs)
+    except dr.errors.ClientError as e:
+        # log.error(f"Error in request: {e}")
+        if (
+            e.json["message"]
+            == "You have exceeded your limit on total modeling API requests.  Try again in 1 seconds."
+        ):
+            log.warning("Rate limit exceeded, waiting for 5 seconds")
+            time.sleep(5)
+            response = client_request_fun(*args, **kwargs)
+        else:
+            raise e
     rate_limiter.release()
     return response
 
