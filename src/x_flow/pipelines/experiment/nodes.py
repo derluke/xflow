@@ -5,8 +5,8 @@ generated using Kedro 0.19.3
 
 import logging
 import os
-from dataclasses import asdict
 import time
+from dataclasses import asdict
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 # pyright: reportPrivateImportUsage=false
@@ -16,12 +16,12 @@ from datarobot.rest import RESTClientObject
 from datarobotx.idp.autopilot import get_or_create_autopilot_run
 from datarobotx.idp.common.hashing import get_hash
 from datarobotx.idp.datasets import get_or_create_dataset_from_df
+from datarobotx.idp.use_cases import get_or_create_use_case
 from filelock import FileLock
 from joblib import Parallel, delayed
 
 from x_flow.utils.data import (
     Data,
-    PredictionData,
     TrainingData,
     ValidationData,
     ValidationPredictionData,
@@ -183,6 +183,16 @@ def register_fire_preprocessor(fire_config: Dict) -> DataPreprocessor:
     return transformer
 
 
+def get_or_create_use_case_with_lock(
+    token: str,
+    endpoint: str,
+    name: str,
+) -> str:
+    with FileLock(os.path.join(".locks", f"get_or_create_use_case_{name}.lock")):
+        use_case_id = get_or_create_use_case(token=token, endpoint=endpoint, name=name)
+    return use_case_id
+
+
 def get_or_create_dataset_from_df_with_lock(
     token: str,
     endpoint: str,
@@ -211,18 +221,11 @@ def get_or_create_dataset_from_df_with_lock(
                 token=token,
                 endpoint=endpoint,
                 use_cases=use_case_id,
-                data_frame=group_df,
+                data_frame=df,
                 name=name,
             )
         return df_id
 
-    # if group_data is None or group_data["groupby_column"] is None:
-    #     df_dict = {"__all_data__": df.rendered_df}
-    # else:
-    #     df_dict = {
-    #         group: group_df
-    #         for group, group_df in df.rendered_df.groupby(group_data["groupby_column"])
-    #     }
     group_data = df.get_partitions()
     jobs = []
     for group, group_df in group_data.items():
@@ -244,7 +247,7 @@ def get_or_create_dataset_from_df_with_lock(
     return return_dict
 
 
-def run_autopilot(
+def run_autopilot(  # noqa: PLR0913
     token: str,
     endpoint: str,
     df: TrainingData,
@@ -255,7 +258,7 @@ def run_autopilot(
     if use_case_id == "not_supported":
         use_case_id = None  # type: ignore
 
-    def _get_or_create_autopilot_run(
+    def _get_or_create_autopilot_run(  # noqa: PLR0913
         name: str,
         use_case: str,
         dataset_id: str,
