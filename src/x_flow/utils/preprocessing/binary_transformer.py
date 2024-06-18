@@ -1,5 +1,3 @@
-import polars as pl
-
 from ..data import Data
 from ..operator import Operator
 from .data_preprocessor import DataPreprocessor

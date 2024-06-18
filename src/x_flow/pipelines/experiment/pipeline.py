@@ -16,6 +16,7 @@ from .nodes import (
     calculate_backtests,
     get_backtest_predictions,
     get_external_predictions,
+    get_or_create_use_case_with_lock,
     get_or_create_dataset_from_df_with_lock,
     preprocessing_fit_transform,
     preprocessing_transform,
@@ -30,7 +31,7 @@ def create_pipeline(**kwargs) -> Pipeline:
     return pipeline(
         [
             node(
-                func=get_or_create_use_case,
+                func=get_or_create_use_case_with_lock,
                 inputs={
                     "token": "params:credentials.datarobot.api_token",
                     "endpoint": "params:credentials.datarobot.endpoint",

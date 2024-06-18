@@ -1,3 +1,4 @@
+from collections import OrderedDict
 import datetime
 import json
 from dataclasses import asdict, dataclass
@@ -74,15 +75,17 @@ class Data:
                 )
             }
 
-    def get_partitions(self) -> dict[str, pd.DataFrame]:
+    def get_partitions(self) -> OrderedDict[str, pd.DataFrame]:
         df = self.rendered_df
         if self.partition_column is not None:
-            return {
-                str(group): group_df
-                for group, group_df in df.groupby(self.partition_column)
-            }
+            return OrderedDict(
+                {
+                    str(group): group_df
+                    for group, group_df in df.groupby(self.partition_column)
+                }
+            )
         else:
-            return {"__all_data__": df}
+            return OrderedDict({"__all_data__": df})
 
 
 @dataclass(kw_only=True)
