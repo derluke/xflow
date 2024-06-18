@@ -14,17 +14,13 @@ dataset_id:
   type: kedro_datasets.text.TextDataset
   filepath: data/outputs/dataset_id.txt
 
-raw_data:
-  type: kedro_datasets.pandas.CSVDataset
-  filepath: include/x_flow/raw_data/nowcasting_training_data.csv
-
 raw_data_train:
   type: kedro_datasets.pandas.CSVDataset
-  filepath: include/x_flow/raw_data/nowcasting_data_train.csv
+  filepath: include/x_flow/raw_data/DR_Demo_Bond_trading_RFQ_train.csv
 
 raw_data_test:
   type: kedro_datasets.pandas.CSVDataset
-  filepath: include/x_flow/raw_data/nowcasting_data_test.csv
+  filepath: include/x_flow/raw_data/DR_Demo_Bond_trading_RFQ_test.csv
 
 autopilot_run:
   type: kedro_datasets.text.TextDataset

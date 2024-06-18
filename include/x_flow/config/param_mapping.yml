@@ -91,4 +91,4 @@ binarize_operator: binarize_data
 binarize_threshold: binarize_data
 binarize_drop_regression_target: binarize_data
 binarize_new_target_name: binarize_data
-groupby_column: group_data
+partition_column: group_data

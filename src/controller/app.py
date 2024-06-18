@@ -29,8 +29,8 @@ class XFlowApp(AbstractKedroBootApp):
                         "binarize_data", {}
                     ),
                     "experiment_config.partition_column": experiment.get(
-                        "partition_column", {}
-                    ),
+                        "group_data", {}
+                    ).get("partition_column", None),
                 }
             elif namespace == "measure":
                 return {
@@ -63,7 +63,7 @@ class XFlowApp(AbstractKedroBootApp):
         # leveraging config_loader to manage app's configs
         experiments = kedro_boot_session.run(namespace="config")
 
-        # experiment_results = run_experiments(experiments, "experiment")
+        experiment_results = run_experiments(experiments, "experiment")
         measure_results = run_experiments(experiments, "measure")
 
         # save results

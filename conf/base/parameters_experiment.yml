@@ -13,11 +13,9 @@ experiment:
       max_wait: 10000
       worker_count: -1
     datetime_partitioning:
-      use_time_series: True
+      use_time_series: False
       datetime_partition_column: date
-      number_of_backtests: 5
-      forecast_window_start: 0
-      forecast_window_end: 0
+      number_of_backtests: 3
     binarize_data_config:
     fire_config:
     partition_column:

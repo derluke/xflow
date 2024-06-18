@@ -1,7 +1,6 @@
-experiment_name,target,mode,default_to_known_in_advance,binarize_operator,binarize_threshold
-simple,Fidelity Contra vs SPX,quick,,,
-full,Fidelity Contra vs SPX,auto,,,
-simple_NC,Fidelity Contra vs SPX,quick,True,,
-full_NC,Fidelity Contra vs SPX,auto,True,,
-simple_NC_BC,Fidelity Contra vs SPX,quick,True,>,0
-full_NC_BC,Fidelity Contra vs SPX,auto,True,>,0
+experiment_name,target,mode,binarize_operator,binarize_threshold,partition_column
+simple,Mid,quick,,,
+full,Mid,auto,,,
+simple_grouped,Mid,quick,,,tier
+simple_NC_BC,Mid,quick,>,100,
+full_NC_BC,Mid,auto,>,100,
