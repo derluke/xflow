@@ -19,10 +19,7 @@ import pandas as pd
 
 import datarobot as dr
 from datarobot import Dataset  # type: ignore
-try:
-    from datarobot.models.use_cases.utils import UseCaseLike
-except ModuleNotFoundError:
-    UseCaseLike = Any
+from datarobot.models.use_cases.utils import UseCaseLike
 
 from datarobotx.idp.common.hashing import get_hash
 
@@ -30,12 +27,7 @@ from datarobotx.idp.common.hashing import get_hash
 def _find_existing_dataset(
     timeout_secs: int, dataset_token: str, use_cases: Optional[UseCaseLike] = None
 ) -> str:
-    
-    if use_cases is None:
-        datasets =  Dataset.list()
-    else:
-        datasets = Dataset.list(use_cases=use_cases)
-    for dataset in datasets:
+    for dataset in Dataset.list(use_cases=use_cases):
         if dataset_token in dataset.name:
             waited_secs = 0
             while True:
@@ -104,12 +96,9 @@ def get_or_create_dataset_from_df(
             timeout_secs=600, dataset_token=dataset_token, use_cases=use_cases
         )
     except KeyError:
-        if use_cases is None:
-            dataset: Dataset = Dataset.create_from_in_memory_data(data_frame=data_frame)
-        else:
-            dataset: Dataset = Dataset.create_from_in_memory_data(
-                data_frame=data_frame, use_cases=use_cases
-            )
+        dataset: Dataset = Dataset.create_from_in_memory_data(
+            data_frame=data_frame, use_cases=use_cases
+        )
         # Dataset API does not have a description attribute (also not exposed in Workbench UI)
         dataset.modify(name=f"{name} [{dataset_token}]")
         return str(dataset.id)

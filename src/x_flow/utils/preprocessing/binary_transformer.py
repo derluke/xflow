@@ -27,9 +27,7 @@ class BinarizeData(DataPreprocessor):
         op_fun = Operator(operator=self._operator).apply_operation(self._threshold)
 
         # Apply the operation and create a new boolean column
-        categorical_data[self._binarize_new_target_name] = target_series.apply(
-            op_fun
-        ).astype(bool)
+        categorical_data[self._binarize_new_target_name] = target_series.apply(op_fun).astype(bool)
 
         # Optionally drop the original target column
         if self._binarize_drop_regression_target:

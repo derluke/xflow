@@ -1,10 +1,10 @@
-from datarobotx.idp.autopilot import get_or_create_autopilot_run
-from datarobotx.idp.common.hashing import get_hash
-from datarobotx.idp.datasets import get_or_create_dataset_from_df
-
 from ..data import Data, TrainingData
 from .data_preprocessor import DataPreprocessor
 from .fire_implementation import FIRE as FireHelper
+
+from datarobotx.idp.autopilot import get_or_create_autopilot_run
+from datarobotx.idp.common.hashing import get_hash
+from datarobotx.idp.datasets import get_or_create_dataset_from_df
 
 
 class FIRE(DataPreprocessor):
@@ -51,6 +51,6 @@ class FIRE(DataPreprocessor):
         return self
 
     def _transform(self, df: Data) -> Data:
-        """helper function: select features from FIRE project"""
+        """Helper function: select features from FIRE project"""
         df.columns = self._features
         return df

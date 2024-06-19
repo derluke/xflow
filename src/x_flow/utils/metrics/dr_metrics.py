@@ -3,10 +3,11 @@ import re
 from threading import Lock
 from typing import Dict, Optional, Tuple
 
-import datarobot as dr
 import pandas as pd
 
 from .metrics import Metric, get_holdout_metrics, get_otv_metrics
+
+import datarobot as dr
 
 log = logging.getLogger(__name__)
 

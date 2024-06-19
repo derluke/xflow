@@ -22,15 +22,13 @@ class XFlowApp(AbstractKedroBootApp):
                 return {
                     "experiment_config": experiment,
                     "experiment_name": experiment["experiment_name"],
-                    "experiment_config.analyze_and_model.target": experiment[
-                        "analyze_and_model"
-                    ]["target"],
-                    "experiment_config.binarize_data_config": experiment.get(
-                        "binarize_data", {}
+                    "experiment_config.analyze_and_model.target": experiment["analyze_and_model"][
+                        "target"
+                    ],
+                    "experiment_config.binarize_data_config": experiment.get("binarize_data", {}),
+                    "experiment_config.partition_column": experiment.get("group_data", {}).get(
+                        "partition_column", None
                     ),
-                    "experiment_config.partition_column": experiment.get(
-                        "group_data", {}
-                    ).get("partition_column", None),
                 }
             elif namespace == "measure":
                 return {
@@ -54,8 +52,7 @@ class XFlowApp(AbstractKedroBootApp):
 
         def run_experiments(experiments, namespace):
             results = Parallel(n_jobs=100, backend="threading")(
-                delayed(run_namespace_session)(experiment, namespace)
-                for experiment in experiments
+                delayed(run_namespace_session)(experiment, namespace) for experiment in experiments
             )
             # log.info(f"{namespace}_results: {results}")
             return results

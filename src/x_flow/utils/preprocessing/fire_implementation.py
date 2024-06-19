@@ -1,13 +1,14 @@
 import logging
 from typing import Literal, Union
 
-# pyright: reportPrivateImportUsage=false
-import datarobot as dr
 import numpy as np
 import pandas as pd
 
 # check datarobot version with semver
 from semver import VersionInfo
+
+# pyright: reportPrivateImportUsage=false
+import datarobot as dr
 
 log = logging.getLogger(__name__)
 
@@ -47,7 +48,7 @@ class FIRE(dr.Project):
         - 'Simple':
         - 'DR Reduced':replicates 'DR Reduced Feature List' logic. Set to initial_impact_reduction_ratio=0.95 to
         get the exact match
-        - 'Rank Aggregation': median aggregation of ranks of features by their impact over top N models
+        - 'Rank Aggregation': median aggregation of ranks of features by their impact over top N models.
 
         Example usage:
         >> import datarobot as dr
@@ -71,8 +72,8 @@ class FIRE(dr.Project):
                                 remove_negative_only_first=False,
                                 best_model_search_params=None)
 
-        Parameters:
-        -----------
+        Parameters
+        ----------
         project_id: str, id of DR project,
         reduction_method: str, can be 'Simple', 'DR Reduced' or 'Rank Aggregation'. Default 'Simple'
         start_model_id: str, id of DR model to start iterating from. for 'Rank Aggregation' keep default. Default None
@@ -94,8 +95,8 @@ class FIRE(dr.Project):
         api docs.
         Default None
 
-        Returns:
-        ----------
+        Returns
+        -------
         dr.Model object of the best model on the leaderboard
         """
         project = self
@@ -104,14 +105,11 @@ class FIRE(dr.Project):
         # if not project.is_datetime_partitioned:
         #     raise NotImplementedError("This is for TS only")
 
-        assert (
-            reduction_method
-            in [
-                "Simple",
-                "DR Reduced",
-                "Rank Aggregation",
-            ]
-        ), "Argument error: reduction_method must be 'Simple', 'DR Reduced' or 'Rank Aggregation'"
+        assert reduction_method in [
+            "Simple",
+            "DR Reduced",
+            "Rank Aggregation",
+        ], "Argument error: reduction_method must be 'Simple', 'DR Reduced' or 'Rank Aggregation'"
 
         project_partition = project.partition["cv_method"]  # type: ignore
 
@@ -152,7 +150,7 @@ class FIRE(dr.Project):
                 # #### GET NEW REDUCED FEATURE LIST IMPACT #####
                 # ##############################################
 
-                new_feature_list = self.get_new_feature_list(
+                new_feature_list = self._get_new_feature_list(
                     reduction_method=reduction_method,
                     feature_impacts=feature_impacts,
                     remove_redundant=remove_redundant,
@@ -167,7 +165,7 @@ class FIRE(dr.Project):
                         "new feature list is the same as previous one... Use new ratio=ratio^2"
                     )
                     ratio *= ratio
-                    new_feature_list = self.get_new_feature_list(
+                    new_feature_list = self._get_new_feature_list(
                         reduction_method=reduction_method,
                         feature_impacts=feature_impacts,
                         remove_redundant=remove_redundant,
@@ -198,9 +196,7 @@ class FIRE(dr.Project):
                     )
 
                 except dr.errors.ClientError as e:
-                    log.info(
-                        f"Feature list named {new_featurelist_name} already exists"
-                    )
+                    log.info(f"Feature list named {new_featurelist_name} already exists")
                     log.info(e.json["message"])
                     if (
                         e.json["message"]
@@ -268,7 +264,7 @@ class FIRE(dr.Project):
                     (
                         best_model,
                         new_featurelist_name,
-                    ) = self.rank_based_feature_reduction_within_project(
+                    ) = self._rank_based_feature_reduction_within_project(
                         n_models=top_n_models,
                         metric=main_scoring_metric,
                         by_partition=partition,
@@ -324,21 +320,20 @@ class FIRE(dr.Project):
         model_search_params=None,
     ):
         """
-        Gets pd.Series of DR model objects sorted by performance. Excludes blenders, frozend and on DR Reduced FL
+        Get pd.Series of DR model objects sorted by performance. Excludes blenders, frozend and on DR Reduced FL.
 
-        Parameters:
-        -----------
+        Parameters
+        ----------
         project: DR project object
         metric: str, metric to use for sorting models on lb, if None, default project metric will be used. Default None
         by_partiton: boolean, whether to use 'validation' or 'crossValidation' partitioning. Default 'validation'
         start_featurelist_name: str, initial featurelist name to get models on. Default None
         model_search_params: dict to pass model search params. Default None
 
-        Returns:
-        -----------
+        Returns
+        -------
         pd.Series of dr.Model objects, not blender, not frozen and not on DR Reduced Feature List
         """
-
         desc_metric_list = [
             "AUC",
             "Gini Norm",
@@ -363,9 +358,7 @@ class FIRE(dr.Project):
 
         asc_flag = False if metric in desc_metric_list else True
         if VersionInfo.parse(dr.__version__) < VersionInfo(3, 4, 0):
-            all_models = self.get_models(
-                with_metric=metric, search_params=model_search_params
-            )
+            all_models = self.get_models(with_metric=metric, search_params=model_search_params)
         else:
             all_models = self.get_model_records(
                 with_metric=metric, training_filters=model_search_params
@@ -381,9 +374,7 @@ class FIRE(dr.Project):
                     model.model_category,
                     model.is_frozen,
                     model.featurelist_name,
-                    all_datetime_models[model.id]
-                    if self.is_datetime_partitioned
-                    else model,
+                    all_datetime_models[model.id] if self.is_datetime_partitioned else model,
                 ]
                 for model in all_models
             ],
@@ -413,10 +404,7 @@ class FIRE(dr.Project):
                 (
                     (models_df.category == "model")
                     & (models_df.is_frozen == False)
-                    & (
-                        models_df.featurelist_name.str.contains("DR Reduced Features M")
-                        == False
-                    )
+                    & (models_df.featurelist_name.str.contains("DR Reduced Features M") == False)
                 ),
                 "model",
             ]
@@ -432,23 +420,20 @@ class FIRE(dr.Project):
         Simplified version of DR Reduced Feature List; may not produce the exact feature list as DR Reduced FL;
         Uses only cumulative feature impact strategy
 
-        Parameters:
-        -----------
+        Parameters
+        ----------
         feature_impacts: pd.DataFrame of feature impact
         remove_redundant: boolean, default is True - removes redundant first before reducing based on cumulative impact
         remove_negative_only_first: boolean, default is False, set True if on every iteration to drop features
         with negative impact only
         ratio: float, ratio to be multiplied by total feature impact and choose features that possess that much impact
 
-        Returns:
-        -----------
+        Returns
+        -------
         list of str, new feature list to retrain on
         """
-
         if remove_redundant:
-            feature_impacts = feature_impacts.loc[
-                feature_impacts["redundantWith"].isna()
-            ]
+            feature_impacts = feature_impacts.loc[feature_impacts["redundantWith"].isna()]
 
         if remove_negative_only_first:
             new_feature_list = feature_impacts[feature_impacts.impactUnnormalized > 0][
@@ -457,14 +442,12 @@ class FIRE(dr.Project):
             return list(set(new_feature_list))
 
         # calculate cumulative feature impact and take first features that possess ratio*100 percents of total impact
-        feature_impacts["impactCumulative"] = feature_impacts[
-            "impactUnnormalized"
-        ].cumsum()
+        feature_impacts["impactCumulative"] = feature_impacts["impactUnnormalized"].cumsum()
         total_impact = feature_impacts["impactCumulative"].max() * ratio
 
-        new_feature_list = feature_impacts[
-            feature_impacts.impactCumulative <= total_impact
-        ]["featureName"].values.tolist()
+        new_feature_list = feature_impacts[feature_impacts.impactCumulative <= total_impact][
+            "featureName"
+        ].values.tolist()
 
         return list(set(new_feature_list))
 
@@ -481,8 +464,8 @@ class FIRE(dr.Project):
 
         Returns a list of reduced features; replicates DR Reduced Feature List
 
-        Parameters:
-        -----------
+        Parameters
+        ----------
         impact: pd.DataFrame of 3 variables, output of pd.DataFrame(model.get_or_request_feature_impact())
         Notes: impact is supposed to be reverse sorted by values, and it is assumed as such
         min_impact: float, default is 0.95, ratio of total impact that is preserved
@@ -490,11 +473,10 @@ class FIRE(dr.Project):
         min_features: int, default is 25, additional safeguard in the heuristics
         feature_ration: float, default is 0.5, additional safeguard in the heuristics
 
-        Returns:
-        -----------
+        Returns
+        -------
         new_feature_list: list of feature names to be used for FL creation
         """
-
         # convert pd.Dataframe to list of 3-tupples of feature name, impact normalized, impact unnormalized
         impact = list(impact.to_records(index=False))
 
@@ -506,9 +488,7 @@ class FIRE(dr.Project):
         normalized_impact /= np.sum(normalized_impact)
 
         # collect the minimum number of features to meet accumulated impact
-        while accumulated_impact <= min_impact and num_features_acc < len(
-            normalized_impact
-        ):
+        while accumulated_impact <= min_impact and num_features_acc < len(normalized_impact):
             accumulated_impact += normalized_impact[num_features_acc]
             num_features_acc += 1
 
@@ -526,7 +506,7 @@ class FIRE(dr.Project):
 
         return new_feature_list
 
-    def get_new_feature_list(
+    def _get_new_feature_list(
         self,
         reduction_method,
         feature_impacts,
@@ -537,9 +517,7 @@ class FIRE(dr.Project):
         assert reduction_method in ["Simple", "DR Reduced"], "Wrong method"
 
         if reduction_method == "Simple":
-            cnt_negative = feature_impacts[
-                feature_impacts.impactUnnormalized <= 0
-            ].shape[0]
+            cnt_negative = feature_impacts[feature_impacts.impactUnnormalized <= 0].shape[0]
             if cnt_negative == 0:
                 remove_negative_only_first = False
 
@@ -559,7 +537,7 @@ class FIRE(dr.Project):
     # based on:
     # https://github.com/datarobot/data-science-scripts/blob/master/tim-whittaker/mrmg-experiment/PNC%20MRMG%20Experiment.ipynb
 
-    def rank_based_feature_reduction_within_project(
+    def _rank_based_feature_reduction_within_project(
         self,
         n_models=5,
         metric=None,
@@ -627,9 +605,7 @@ class FIRE(dr.Project):
         # based on sum of impact
         # log.info(all_impact.head())
         all_impact_agg = (
-            all_impact.groupby("featureName")[
-                ["impactNormalized", "impactUnnormalized"]
-            ]
+            all_impact.groupby("featureName")[["impactNormalized", "impactUnnormalized"]]
             .sum()
             .sort_values("impactUnnormalized", ascending=False)
             .reset_index()
@@ -673,10 +649,7 @@ class FIRE(dr.Project):
                     all_models = self.get_models()
                 else:
                     all_models = self.get_model_records()
-                if (
-                    len([m for m in all_models if m.featurelist_id == featurelist_id])
-                    > 3
-                ):
+                if len([m for m in all_models if m.featurelist_id == featurelist_id]) > 3:
                     log.info(f"skipping autopilot for {featurelist.name}")
                     return models[0], featurelist.name
 

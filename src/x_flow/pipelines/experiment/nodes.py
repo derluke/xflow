@@ -3,22 +3,15 @@ This is a boilerplate pipeline 'experiment'
 generated using Kedro 0.19.3
 """
 
+from dataclasses import asdict
 import logging
 import os
 import time
-from dataclasses import asdict
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Union
 
-# pyright: reportPrivateImportUsage=false
-import datarobot as dr
-import pandas as pd
-from datarobot.rest import RESTClientObject
-from datarobotx.idp.autopilot import get_or_create_autopilot_run
-from datarobotx.idp.common.hashing import get_hash
-from datarobotx.idp.datasets import get_or_create_dataset_from_df
-from datarobotx.idp.use_cases import get_or_create_use_case
 from filelock import FileLock
 from joblib import Parallel, delayed
+import pandas as pd
 
 from x_flow.utils.data import (
     Data,
@@ -36,6 +29,14 @@ from x_flow.utils.dr_helpers import (
 from x_flow.utils.preprocessing.binary_transformer import BinarizeData
 from x_flow.utils.preprocessing.data_preprocessor import DataPreprocessor, Identity
 from x_flow.utils.preprocessing.fire import FIRE
+
+# pyright: reportPrivateImportUsage=false
+import datarobot as dr
+from datarobot.rest import RESTClientObject
+from datarobotx.idp.autopilot import get_or_create_autopilot_run
+from datarobotx.idp.common.hashing import get_hash
+from datarobotx.idp.datasets import get_or_create_dataset_from_df
+from datarobotx.idp.use_cases import get_or_create_use_case
 
 try:
     from datarobot import UseCase  # type: ignore
@@ -214,9 +215,7 @@ def get_or_create_dataset_from_df_with_lock(
         name = f"{name}_{group}" if (group != "__all_data__") else name
         df_token = get_hash(df, use_case_id, name)
 
-        with FileLock(
-            os.path.join(".locks", f"get_or_create_dataset_from_df_{df_token}.lock")
-        ):
+        with FileLock(os.path.join(".locks", f"get_or_create_dataset_from_df_{df_token}.lock")):
             df_id = get_or_create_dataset_from_df(
                 token=token,
                 endpoint=endpoint,
@@ -305,12 +304,8 @@ def run_autopilot(  # noqa: PLR0913
                 dataset_id=dataset_id,
                 advanced_options_config=experiment_config.get("advanced_options", {}),
                 analyze_and_model_config=experiment_config.get("analyze_and_model", {}),
-                create_from_dataset_config=experiment_config.get(
-                    "create_from_dataset", {}
-                ),
-                datetime_partitioning_config=experiment_config.get(
-                    "datetime_partitioning", {}
-                ),
+                create_from_dataset_config=experiment_config.get("create_from_dataset", {}),
+                datetime_partitioning_config=experiment_config.get("datetime_partitioning", {}),
                 feature_settings_config=experiment_config.get("feature_settings", {}),
             )
         )
@@ -390,9 +385,7 @@ def get_backtest_predictions(
     project_dict: Dict[str, str],
     df: ValidationData,
     # backtests_completed: bool,
-    data_subset: Optional[
-        Union[dr.enums.DATA_SUBSET, str]
-    ] = dr.enums.DATA_SUBSET.ALL_BACKTESTS,
+    data_subset: Optional[Union[dr.enums.DATA_SUBSET, str]] = dr.enums.DATA_SUBSET.ALL_BACKTESTS,
     max_models_per_project: int = 5,
 ) -> Dict[str, ValidationPredictionData]:
     """
@@ -405,11 +398,11 @@ def get_backtest_predictions(
         data_subset: The subset of data to use for predictions.
         max_models_per_project: Maximum number of models to fetch predictions for from each project.
 
-    Returns:
+    Returns
+    -------
         Dict[str, pd.DataFrame]: Dictionary with keys formatted as "{group}/{model.project_id}/{model.id}/{partition_id}"
         and values as DataFrames with predictions.
     """
-
     # if not backtests_completed:
     #     raise ValueError("Backtests have not been completed")
 
@@ -458,7 +451,8 @@ def get_external_predictions(
         max_models_per_project: Maximum number of models to consider per project.
         group_data: Optional dictionary specifying how to group data, default is None.
 
-    Returns:
+    Returns
+    -------
         Dictionary of formatted strings (group/model ID/partition ID) to their respective DataFrame of predictions.
     """
 
@@ -489,13 +483,3 @@ def get_external_predictions(
         aggregated_results.update(result)  # type: ignore
 
     return aggregated_results
-
-
-def get_datarobot_metrics(
-    project_dict: Dict[str, str],
-):
-    for group, project_id in project_dict.items():
-        project = dr.Project.get(project_id)
-
-        for model in get_models(project):
-            model.metrics

@@ -1,13 +1,13 @@
 """Project settings. There is no need to edit this file unless you want to change values
 from the Kedro defaults. For further information, including these default values, see
-https://docs.kedro.org/en/stable/kedro_project_setup/settings.html."""
+https://docs.kedro.org/en/stable/kedro_project_setup/settings.html.
+"""
 
 # Instantiated project hooks.
 # For example, after creating a hooks.py and defining a ProjectHooks class there, do
 # from x_flow.hooks import ProjectHooks
-from datarobotx.idp.common.credentials_hooks import CredentialsHooks
 from datarobotx.idp.common.checkpoint_hooks import CheckpointHooks
-
+from datarobotx.idp.common.credentials_hooks import CredentialsHooks
 
 # Hooks are executed in a Last-In-First-Out (LIFO) order.
 # HOOKS = (ProjectHooks(),)
@@ -29,10 +29,9 @@ APP_CLASS = "controller.app.XFlowApp"
 # CONF_SOURCE = "conf"
 
 # Class that manages how configuration is loaded.
-from kedro.config import OmegaConfigLoader  # noqa: E402
-
-
 from copy import deepcopy
+
+from kedro.config import OmegaConfigLoader  # noqa: E402
 
 
 def merge_dicts(dict1, dict2):
@@ -43,7 +42,8 @@ def merge_dicts(dict1, dict2):
         dict1 (dict): The first dictionary to merge.
         dict2 (dict): The second dictionary to merge.
 
-    Returns:
+    Returns
+    -------
         dict: The merged dictionary.
     """
     result = deepcopy(dict1)

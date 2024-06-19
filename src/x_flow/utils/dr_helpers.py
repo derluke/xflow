@@ -5,20 +5,21 @@ This module contains utility functions for working with DataRobot projects
 """
 
 # pyright: reportPrivateImportUsage=false
+from collections import Counter
 import datetime
 import hashlib
 import logging
 import os
 import tempfile
 import threading
-from collections import Counter
 from typing import Any, List, Optional, Union
 
-import datarobot as dr
+from filelock import FileLock
 import pandas as pd
+
+import datarobot as dr
 from datarobot.utils import retry
 from datarobotx.idp.common.hashing import get_hash
-from filelock import FileLock
 
 log = logging.getLogger(__name__)
 
@@ -70,8 +71,7 @@ def wait_for_jobs(jobs: list[dr.Job], rate_limiter: RateLimiterSemaphore) -> Non
         # ]
 
         log.info(
-            f"Jobs: in progress: {inprogress}, "
-            f"queued: {queued} (waited: {seconds_waited:.0f}s)"
+            f"Jobs: in progress: {inprogress}, " f"queued: {queued} (waited: {seconds_waited:.0f}s)"
         )
         # if all jobs are complete, break out of the loop
         if not (job_status["queue"] > 0 or job_status["inprogress"] > 0):
@@ -85,9 +85,7 @@ def wait_for_jobs(jobs: list[dr.Job], rate_limiter: RateLimiterSemaphore) -> Non
 
 def get_models(project: dr.Project) -> Union[List[dr.Model], List[dr.DatetimeModel]]:
     if project.is_datetime_partitioned:
-        return [
-            m for m in project.get_datetime_models() if m.training_duration is not None
-        ]
+        return [m for m in project.get_datetime_models() if m.training_duration is not None]
     else:
         return [m for m in project.get_models() if m.sample_pct is not None]
 
@@ -131,9 +129,7 @@ def get_training_predictions(
         ):
             log.error(e)
             return None
-        all_training_predictions = dr.TrainingPredictions.list(
-            project_id=model.project_id
-        )
+        all_training_predictions = dr.TrainingPredictions.list(project_id=model.project_id)
         tp = [
             tp
             for tp in all_training_predictions
@@ -197,12 +193,8 @@ def upload_dataset(
         kwags["predictions_end_date"] = max_date
 
     kwags_for_hash = kwags.copy()
-    kwags_for_hash["predictions_start_date"] = str(
-        kwags_for_hash.get("predictions_start_date")
-    )
-    kwags_for_hash["predictions_end_date"] = str(
-        kwags_for_hash.get("predictions_end_date")
-    )
+    kwags_for_hash["predictions_start_date"] = str(kwags_for_hash.get("predictions_start_date"))
+    kwags_for_hash["predictions_end_date"] = str(kwags_for_hash.get("predictions_end_date"))
     hashed_df = get_hash(sourcedata, **kwags_for_hash)
     if hashed_df in uploaded_datasets:
         return uploaded_datasets[hashed_df]
@@ -214,9 +206,7 @@ def upload_dataset(
         with tempfile.TemporaryDirectory() as tempdir:
             file_location = os.path.join(tempdir, hashed_df)
             sourcedata.to_csv(file_location, index=False, compression="gzip")
-            dataset = project.upload_dataset(
-                file_location, dataset_filename=hashed_df, **kwags
-            )
+            dataset = project.upload_dataset(file_location, dataset_filename=hashed_df, **kwags)
         # project._uploaded_datasets[hashed_df] = dataset
         return dataset
 
@@ -322,9 +312,7 @@ def calculate_stats(  # noqa: PLR0912,PLR0915
                 log.info(e)
             return None
 
-    def request_feature_effect(
-        m: dr.Model, backtest: Optional[str] = None
-    ) -> Optional[dr.Job]:
+    def request_feature_effect(m: dr.Model, backtest: Optional[str] = None) -> Optional[dr.Job]:
         try:
             if backtest is None:
                 return m.request_feature_effect()
@@ -373,9 +361,7 @@ def calculate_stats(  # noqa: PLR0912,PLR0915
                     for source in ["training", "validation"]:
                         try:
                             jobs.append(
-                                compute_datetime_trend_plots(
-                                    m, backtest=str(i), source=source
-                                )
+                                compute_datetime_trend_plots(m, backtest=str(i), source=source)
                             )
                         except Exception as e:  # pylint: disable=broad-except
                             if verbose:

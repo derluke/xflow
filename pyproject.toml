@@ -15,8 +15,8 @@ x-flow = "x_flow.__main__:main"
 [project.optional-dependencies]
 
 [tool.setuptools.dynamic]
-dependencies = {file = "requirements.txt"}
-version = {attr = "x_flow.__version__"}
+dependencies = { file = "requirements.txt" }
+version = { attr = "x_flow.__version__" }
 
 [tool.setuptools.packages.find]
 where = ["src"]
@@ -40,19 +40,16 @@ fail_under = 0
 show_missing = true
 exclude_lines = ["pragma: no cover", "raise NotImplementedError"]
 
-[tool.ruff.format]
-docstring-code-format = true
-
 [tool.ruff]
-line-length = 88
-show-fixes = true
-select = [
-    "F",   # Pyflakes
-    "W",   # pycodestyle
-    "E",   # pycodestyle
-    "I",   # isort
-    "UP",  # pyupgrade
-    "PL",  # Pylint
-    "T201", # Print Statement
-]
-ignore = ["E501"]  # Ruff format takes care of line-too-long
+line-length = 100
+
+[tool.ruff.lint]
+select = ["D", "F", "I"]
+ignore = ["D100", "D104"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "numpy"
+
+[tool.ruff.lint.isort]
+force-sort-within-sections = true
+forced-separate = ["datarobot", "datarobotx"]

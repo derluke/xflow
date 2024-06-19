@@ -1,8 +1,9 @@
-import logging
 from abc import ABC, abstractmethod
+import logging
 from typing import Dict, Optional
 
 import pandas as pd
+
 from x_flow.utils.operator import Operator
 
 log = logging.getLogger(__name__)
@@ -51,11 +52,13 @@ class Metric(ABC):
                                 fully specify binarization. It must contain a 'binarize_data_config' key with sub-keys
                                 'operator' and 'threshold' for binarization.
 
-        Returns:
+        Returns
+        -------
             pd.Series: The preprocessed predictions, which may be binarized if specified by the configurations. If the
                     metric's data type is not 'binary', the predictions are returned unchanged.
 
-        Raises:
+        Raises
+        ------
             ValueError: If the necessary binarization parameters are missing in both configurations when required,
                         or if the 'experiment_config' or 'metric_config' itself is not provided when needed.
         """
@@ -111,9 +114,7 @@ def get_otv_metrics(metrics_dict: Dict, backtest_index: int) -> Dict[str, float]
     for metric_name, stats in metrics_dict.items():
         if "backtestingScores" in stats:
             try:
-                otv_metrics[f"{metric_name}"] = stats["backtestingScores"][
-                    backtest_index
-                ]
+                otv_metrics[f"{metric_name}"] = stats["backtestingScores"][backtest_index]
             except IndexError:
                 log.warning(
                     f"Backtest index {backtest_index} is out of range for metric {metric_name}"

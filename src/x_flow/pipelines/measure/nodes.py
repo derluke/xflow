@@ -4,20 +4,19 @@ generated using Kedro 0.19.3
 """
 
 import logging
-from functools import partial
-from typing import Any, Callable, Dict, List, Optional, TypeAlias, Union
+from typing import Callable, List, Optional, TypeAlias
 
-# pyright: reportPrivateImportUsage=false
-import datarobot as dr
-import pandas as pd
 from joblib import Parallel, delayed
-from x_flow.utils.data import PredictionData, ValidationPredictionData
-from x_flow.utils.dr_helpers import get_training_predictions
+import pandas as pd
 
+from x_flow.utils.data import ValidationPredictionData
 from x_flow.utils.metrics.dr_metrics import DataRobotMetrics
 from x_flow.utils.metrics.generalized_f1 import GeneralizedF1
 from x_flow.utils.metrics.mean_squared_error import MeanSquaredError
 from x_flow.utils.metrics.metrics import MetricFactory
+
+# pyright: reportPrivateImportUsage=false
+import datarobot as dr
 
 log = logging.getLogger(__name__)
 
@@ -102,9 +101,7 @@ def calculate_metrics(
     metrics: List[str],
 ):
     experiment_name = experiment_config["experiment_name"]
-    metadata_df = pd.DataFrame(
-        [k.replace(".csv", "").split("/")[:-1] for k in predictions]
-    )
+    metadata_df = pd.DataFrame([k.replace(".csv", "").split("/")[:-1] for k in predictions])
     metadata_df.columns = [
         "partition",
         "project_id",
@@ -126,9 +123,7 @@ def calculate_metrics(
 
         for (project_id, model_id), model_df in df.groupby(["project_id", "model_id"]):
             load_functions = model_df["load_function"].to_list()
-            validation_predictions = [
-                load_function() for load_function in load_functions
-            ]
+            validation_predictions = [load_function() for load_function in load_functions]
             all_predictions = []
             for validation_prediction in validation_predictions:
                 rendered_df = validation_prediction.rendered_df

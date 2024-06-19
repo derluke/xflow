@@ -22,7 +22,8 @@ def merge_dicts(dict1, dict2):
         dict1 (dict): The first dictionary to merge.
         dict2 (dict): The second dictionary to merge.
 
-    Returns:
+    Returns
+    -------
         dict: The merged dictionary.
     """
     result = deepcopy(dict1)
@@ -56,9 +57,7 @@ def decode_config(
     # log.info(
     #     f"Decoding config with mapping: {json.dumps(param_mapping, indent=4, sort_keys=True)}"
     # )
-    log.info(
-        f"Global parameters: {json.dumps(global_parameters, indent=4, sort_keys=True)}"
-    )
+    log.info(f"Global parameters: {json.dumps(global_parameters, indent=4, sort_keys=True)}")
 
     decoded_configs = []
     seen_experiment_names = set()
@@ -68,9 +67,7 @@ def decode_config(
         for experiment_key, experiment_value in experiment_row.items():
             if experiment_key == "experiment_name":
                 if experiment_value in seen_experiment_names:
-                    raise ValueError(
-                        f"Duplicate experiment name detected: {experiment_value}"
-                    )
+                    raise ValueError(f"Duplicate experiment name detected: {experiment_value}")
                 seen_experiment_names.add(experiment_value)
                 decoded_config[experiment_key] = experiment_value
                 continue
@@ -78,9 +75,7 @@ def decode_config(
                 if param_mapping[experiment_key] not in decoded_config:
                     decoded_config[param_mapping[experiment_key]] = {}
 
-                decoded_config[param_mapping[experiment_key]][experiment_key] = (
-                    experiment_value
-                )
+                decoded_config[param_mapping[experiment_key]][experiment_key] = experiment_value
         decoded_configs.append(decoded_config)
 
     # log.info(
@@ -114,7 +109,5 @@ def decode_config(
         return new_dict
 
     merged_pruned_dicts = [prune_none_values(d) for d in merged_configs]
-    log.info(
-        f"Decoded config: {json.dumps(merged_pruned_dicts, indent=4, sort_keys=True)}"
-    )
+    log.info(f"Decoded config: {json.dumps(merged_pruned_dicts, indent=4, sort_keys=True)}")
     return merged_pruned_dicts
