@@ -51,6 +51,6 @@ class FIRE(DataPreprocessor):
         return self
 
     def _transform(self, df: Data) -> Data:
-        """Helper function: select features from FIRE project"""
+        """Helper function: select features from FIRE project."""
         df.columns = self._features
         return df

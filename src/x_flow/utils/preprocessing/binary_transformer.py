@@ -20,7 +20,7 @@ class BinarizeData(DataPreprocessor):
         return self
 
     def _transform(self, df: TrainingData) -> Data:
-        """Helper function: binarize a target variable for classification"""
+        """Helper function: binarize a target variable for classification."""
         categorical_data = df.rendered_df
         target_series = categorical_data[df.target_column]
 

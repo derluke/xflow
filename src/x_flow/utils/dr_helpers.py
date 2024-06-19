@@ -1,8 +1,4 @@
-"""
-This module contains utility functions for working with DataRobot projects
-
-
-"""
+"""This module contains utility functions for working with DataRobot projects."""
 
 # pyright: reportPrivateImportUsage=false
 from collections import Counter
@@ -51,9 +47,7 @@ class RateLimiterSemaphore:
 
 
 def wait_for_jobs(jobs: list[dr.Job], rate_limiter: RateLimiterSemaphore) -> None:
-    """
-    Wait for a list of jobs to complete
-    """
+    """Wait for a list of jobs to complete."""
     jobs = [j for j in jobs if j]
     for _, seconds_waited in retry.wait(24 * 60 * 60, maxdelay=20.0):
         # summarise the statuses by count of the jobs in the list
@@ -94,7 +88,7 @@ def _hash_pandas(df: pd.DataFrame) -> str:
     """
     Returns the hash of a pandas dataframe.
     :param self: pandas dataframe
-    :return: hash of the pandas dataframe
+    :return: hash of the pandas dataframe.
     """
     return (
         str(
@@ -116,7 +110,7 @@ def get_training_predictions(
     Get the training predictions for a model
     :param model: DataRobot model object
     :param data_subset: DataRobot data subset
-    :return: pandas dataframe of training predictions
+    :return: pandas dataframe of training predictions.
     """
     try:
         pred_job = model.request_training_predictions(data_subset=data_subset)
@@ -147,7 +141,7 @@ def get_external_holdout_predictions(
     :param model: DataRobot model object
     :param external_holdout: pandas dataframe of external holdout data
     :param partition_column: name of the partition column
-    :return: pandas dataframe of external holdout predictions
+    :return: pandas dataframe of external holdout predictions.
     """
     project = dr.Project.get(model.project_id)  # type: ignore
     with FileLock(os.path.join(".locks", f"upload_dataset_{project.id}.lock")):
@@ -219,7 +213,7 @@ def predict(model: dr.Model, df: pd.DataFrame) -> pd.DataFrame:
     Make predictions using a DataRobot model
     :param project: DataRobot project object
     :param df: pandas dataframe to make predictions on
-    :return: pandas dataframe of predictions
+    :return: pandas dataframe of predictions.
     """
     project = dr.Project.get(model.project_id)  # type: ignore
 
@@ -236,15 +230,13 @@ def calculate_stats(  # noqa: PLR0912,PLR0915
     Calculate stats for the first n_models models in the project
     :param project: project object
     :param n_models: int number of models to calculate stats for
-    :return: None
+    :return: None.
     """
     project.set_worker_count(-1)
     assert project.id
 
     def wait_for_jobs(jobs: list[dr.Job]) -> None:
-        """
-        Wait for a list of jobs to complete
-        """
+        """Wait for a list of jobs to complete."""
         jobs = [j for j in jobs if j]
         for _, seconds_waited in retry.wait(24 * 60 * 60, maxdelay=20.0):
             # summarise the statuses by count of the jobs in the list

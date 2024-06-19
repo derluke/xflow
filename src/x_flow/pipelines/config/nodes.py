@@ -1,8 +1,3 @@
-"""
-This is a boilerplate pipeline 'config'
-generated using Kedro 0.19.3
-"""
-
 from copy import deepcopy
 import json
 import logging

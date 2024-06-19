@@ -1,5 +1,5 @@
 try:
-    from datarobot import UseCase  # type: ignore
+    from datarobot import UseCase  # type: ignore  # noqa: F401
     from datarobotx.idp.use_cases import get_or_create_use_case  # type: ignore
 except ImportError:
 

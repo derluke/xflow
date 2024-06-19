@@ -39,8 +39,8 @@ class FIRE(dr.Project):
         remove_negative_only_first=False,
         best_model_search_params=None,
     ):
-        """
-        Main function. Meant to get the optimal shortest feature list.
+        """Get the optimal shortest feature list.
+
         Run before choosing (retraining/blending/freezing) the final blueprint.
         Currently supports and tested on Binary, Regression, Multiclass projects. Testing for OTV is
         TO DO. Support for TS is TO DO
@@ -418,7 +418,7 @@ class FIRE(dr.Project):
     ):
         """
         Simplified version of DR Reduced Feature List; may not produce the exact feature list as DR Reduced FL;
-        Uses only cumulative feature impact strategy
+        Uses only cumulative feature impact strategy.
 
         Parameters
         ----------
@@ -460,7 +460,7 @@ class FIRE(dr.Project):
         feature_ratio=0.5,
     ):
         """
-        CANNOT BE SHARED WITH CUSTOMERS AS IS!
+        CANNOT BE SHARED WITH CUSTOMERS AS IS!.
 
         Returns a list of reduced features; replicates DR Reduced Feature List
 
@@ -546,8 +546,6 @@ class FIRE(dr.Project):
         ratio=0.95,
         model_search_params=None,
     ):
-        """ """
-
         models = self.get_best_models(
             metric=metric,
             by_partition=by_partition,

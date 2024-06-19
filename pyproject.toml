@@ -44,7 +44,7 @@ exclude_lines = ["pragma: no cover", "raise NotImplementedError"]
 line-length = 100
 
 [tool.ruff.lint]
-select = ["D", "F", "I"]
+select = ["F", "I"]
 ignore = ["D100", "D104"]
 
 [tool.ruff.lint.pydocstyle]

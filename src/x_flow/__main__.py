@@ -1,6 +1,4 @@
-"""X Flow file for ensuring the package is executable
-as `x-flow` and `python -m x_flow`
-"""
+"""X Flow file for ensuring the package is executable as `x-flow` and `python -m x_flow`."""
 
 import importlib
 from pathlib import Path

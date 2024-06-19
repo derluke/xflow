@@ -11,6 +11,8 @@ log = logging.getLogger(__name__)
 
 
 class XFlowApp(AbstractKedroBootApp):
+    """Main application class for the XFlow project."""
+
     def _run(self, kedro_boot_session: KedroBootSession):
         def log_experiment_info(experiment_name, experiment):
             log.info(f"Experiment_name: {experiment_name}")
@@ -60,7 +62,7 @@ class XFlowApp(AbstractKedroBootApp):
         # leveraging config_loader to manage app's configs
         experiments = kedro_boot_session.run(namespace="config")
 
-        experiment_results = run_experiments(experiments, "experiment")
+        run_experiments(experiments, "experiment")
         measure_results = run_experiments(experiments, "measure")
 
         # save results

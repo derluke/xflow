@@ -1,8 +1,3 @@
-"""
-This is a boilerplate pipeline 'experiment'
-generated using Kedro 0.19.3
-"""
-
 from dataclasses import asdict
 import logging
 import os
@@ -442,7 +437,7 @@ def get_external_predictions(
     max_models_per_project: int = 5,
 ) -> Dict[str, ValidationPredictionData]:
     """
-    Retrieves external predictions for models across multiple projects, using external holdout data.
+    Retrieve external predictions for models across multiple projects, using external holdout data.
 
     Args:
         project_dict: Dictionary mapping group names to project IDs.
