@@ -7,6 +7,7 @@ from typing import Any, Dict, List, Optional, Union
 from filelock import FileLock
 from joblib import Parallel, delayed
 import pandas as pd
+import requests
 
 from x_flow.utils.data import (
     Data,
@@ -58,7 +59,7 @@ rate_limiter = RateLimiterSemaphore(25)
 client_request_fun = RESTClientObject.request
 
 
-def request_with_rate_limiter(*args, **kwargs):
+def request_with_rate_limiter(*args: Any, **kwargs: Any) -> requests.Response:
     rate_limiter.acquire()
     try:
         response = client_request_fun(*args, **kwargs)
@@ -89,8 +90,12 @@ for handler in dr_logger.handlers:
 
 
 def unpack_row_to_args(
-    control_series: Dict, arg_look: Dict, arg_values_dict=None, verbose=False
+    control_series: dict[str, Any],
+    arg_look: Dict[str, Any],
+    arg_values_dict: Optional[Dict[str, Any]] = None,
+    verbose: bool = False,
 ) -> dict[str, Any]:
+    # Your code here
     if arg_values_dict is None:
         # initialise the dict with a control entry
         arg_values_dict = {"_control": {}}
@@ -164,7 +169,7 @@ def preprocessing_transform(data: Data, *transformations: DataPreprocessor) -> D
     return data
 
 
-def register_binarize_preprocessor(binarize_data_config: Dict) -> DataPreprocessor:
+def register_binarize_preprocessor(binarize_data_config: dict[str, Any]) -> DataPreprocessor:
     if binarize_data_config is None:
         transformer = Identity()
     else:
@@ -172,7 +177,7 @@ def register_binarize_preprocessor(binarize_data_config: Dict) -> DataPreprocess
     return transformer
 
 
-def register_fire_preprocessor(fire_config: Dict) -> DataPreprocessor:
+def register_fire_preprocessor(fire_config: dict[str, Any]) -> DataPreprocessor:
     if fire_config is None:
         transformer = Identity()
     else:
@@ -246,9 +251,9 @@ def run_autopilot(  # noqa: PLR0913
     token: str,
     endpoint: str,
     df: TrainingData,
-    dataset_dict: Dict[str, str],
+    dataset_dict: dict[str, str],
     use_case_id: str,
-    experiment_config: Dict,
+    experiment_config: dict[str, Any],
 ) -> Dict[str, str]:
     if use_case_id == "not_supported":
         use_case_id = None  # type: ignore
@@ -257,11 +262,11 @@ def run_autopilot(  # noqa: PLR0913
         name: str,
         use_case: str,
         dataset_id: str,
-        advanced_options_config: Dict,
-        analyze_and_model_config: Dict,
-        create_from_dataset_config: Dict,
-        datetime_partitioning_config: Dict,
-        feature_settings_config: List[Dict],
+        advanced_options_config: dict[str, Any],
+        analyze_and_model_config: dict[str, Any],
+        create_from_dataset_config: dict[str, Any],
+        datetime_partitioning_config: Optional[dict[str, Any]],
+        feature_settings_config: list[dict[str, Any]],
     ) -> Optional[str]:
         try:
             project_id = get_or_create_autopilot_run(
@@ -317,10 +322,10 @@ def run_autopilot(  # noqa: PLR0913
 
 
 def unlock_holdouts(
-    project_dict: Dict[str, str],
-):
+    project_dict: dict[str, str],
+) -> bool:
     for _, project_id in project_dict.items():
-        project = dr.Project.get(project_id)
+        project = dr.Project.get(project_id)  # type: ignore[attr-defined]
         project.unlock_holdout()
     return True
 
@@ -416,7 +421,7 @@ def get_backtest_predictions(
     tasks = (
         delayed(_get_backtest_predictions)(model, group)
         for group, project_id in project_dict.items()
-        for model in get_models(dr.Project.get(project_id))[:max_models_per_project]
+        for model in get_models(dr.Project.get(project_id))[:max_models_per_project]  # type: ignore[attr-defined]
     )
 
     results = Parallel(n_jobs=100, backend="threading")(tasks)
@@ -464,7 +469,7 @@ def get_external_predictions(
     tasks = (
         delayed(_get_external_predictions)(model, df_dict[group], group)
         for group, project_id in project_dict.items()
-        for model in get_models(dr.Project.get(project_id))[:max_models_per_project]
+        for model in get_models(dr.Project.get(project_id))[:max_models_per_project]  # type: ignore[attr-defined]
     )
 
     results = Parallel(n_jobs=100, backend="threading")(tasks)
