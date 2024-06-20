@@ -1,4 +1,4 @@
-from typing import Dict, Optional
+from typing import Any, Dict, Optional
 
 import pandas as pd
 from sklearn.metrics import f1_score
@@ -7,7 +7,7 @@ from .metrics import Metric
 
 
 class GeneralizedF1(Metric):
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__(
             data_type="binary",
             name="generalized_f1",
@@ -19,10 +19,10 @@ class GeneralizedF1(Metric):
         actuals: pd.Series,
         predictions: pd.Series,
         extra_data: Optional[pd.DataFrame],
-        experiment_config: Optional[dict],
-        metric_config: Optional[dict],
-        **kwargs,
-    ) -> Dict[str, float]:
+        experiment_config: dict[str, Any],
+        metric_config: Optional[Dict[str, Any]],
+        metadata: Optional[Dict[str, Any]],
+    ) -> dict[str, Optional[float]]:
         # log.info(f"Computing generalized F1 score with metric_config: {metric_config}")
 
         if metric_config is None:
@@ -37,13 +37,13 @@ class GeneralizedF1(Metric):
         if not binary_model:
             predictions = self.preprocess(
                 predictions,
-                experiment_config=experiment_config,  # type: ignore
-                metric_config=metric_config,  # type: ignore
+                experiment_config=experiment_config,
+                metric_config=metric_config,
             )
             actuals = self.preprocess(
                 actuals,
-                experiment_config=experiment_config,  # type: ignore
-                metric_config=metric_config,  # type: ignore
+                experiment_config=experiment_config,
+                metric_config=metric_config,
             )
         else:
             threshold = metric_config.get("threshold", 0.5)

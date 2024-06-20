@@ -17,9 +17,12 @@ class DataPreprocessor(ABC):
         return self._fit(df)._transform(df)
 
     @abstractmethod
-    def _fit(self, df: Data) -> "DataPreprocessor": ...
+    def _fit(self, df: Data) -> "DataPreprocessor":
+        ...
+
     @abstractmethod
-    def _transform(self, df: Data) -> Data: ...
+    def _transform(self, df: Data) -> Data:
+        ...
 
 
 class Identity(DataPreprocessor):

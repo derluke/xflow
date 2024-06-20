@@ -2,7 +2,6 @@
 
 from typing import Dict
 
-from kedro.framework.project import find_pipelines
 from kedro.pipeline import Pipeline
 from kedro.pipeline.modular_pipeline import pipeline
 
@@ -16,10 +15,10 @@ from x_flow.pipelines.measure.pipeline import create_pipeline as create_measure_
 def register_pipelines() -> Dict[str, Pipeline]:
     """Register the project's pipelines.
 
-    Returns:
+    Returns
+    -------
         A mapping from pipeline names to ``Pipeline`` objects.
     """
-
     config_pipeline = pipeline(
         create_config_pipeline(),
         namespace="config",
@@ -68,9 +67,7 @@ def register_pipelines() -> Dict[str, Pipeline]:
     )
 
     pipelines = {
-        "__default__": config_pipeline
-        + x_flow_experiments_pipeline
-        + x_flow_measure_pipeline,
+        "__default__": config_pipeline + x_flow_experiments_pipeline + x_flow_measure_pipeline,
         "config": config_pipeline,
     }
 

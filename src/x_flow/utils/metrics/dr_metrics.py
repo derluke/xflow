@@ -1,12 +1,13 @@
 import logging
 import re
 from threading import Lock
-from typing import Dict, Optional, Tuple
+from typing import Any, Dict, Optional, Tuple
 
-import datarobot as dr
 import pandas as pd
 
 from .metrics import Metric, get_holdout_metrics, get_otv_metrics
+
+import datarobot as dr
 
 log = logging.getLogger(__name__)
 
@@ -36,7 +37,7 @@ datarobot_higher_is_better = {
 }
 
 
-def flatten_all_dr_metrics(metrics_dict: Dict) -> Dict[str, float]:
+def flatten_all_dr_metrics(metrics_dict: dict[str, Any]) -> Dict[str, float]:
     flat_data = {}
     for metric_name, stats in metrics_dict.items():
         for key, value in stats.items():
@@ -51,16 +52,16 @@ def flatten_all_dr_metrics(metrics_dict: Dict) -> Dict[str, float]:
 
 
 class DataRobotMetrics(Metric):
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__(
             data_type="binary",
             name="datarobot_metrics",
             higher_is_better=datarobot_higher_is_better,
         )
-        self.metrics_cache: Dict[Tuple[str, str], Dict] = {}
+        self.metrics_cache: dict[Tuple[str, str], dict[str, Any]] = {}
         self.locks: Dict[Tuple[str, str], Lock] = {}
 
-    def get_lock(self, project_id, model_id):
+    def get_lock(self, project_id: str, model_id: str) -> Lock:
         """Ensure that there is a unique lock for each (project_id, model_id) pair."""
         if (project_id, model_id) not in self.locks:
             self.locks[(project_id, model_id)] = Lock()
@@ -71,9 +72,9 @@ class DataRobotMetrics(Metric):
         actuals: pd.Series,
         predictions: pd.Series,
         extra_data: Optional[pd.DataFrame],
-        experiment_config: Optional[dict],
-        metric_config: Optional[dict],
-        metadata: Optional[dict],
+        experiment_config: Optional[dict[str, Any]],
+        metric_config: Optional[dict[str, Any]],
+        metadata: Optional[dict[str, Any]],
     ) -> Dict[str, Optional[float]]:
         if extra_data is None:
             log.warning("Model dataframe is not provided")
@@ -99,12 +100,12 @@ class DataRobotMetrics(Metric):
         lock = self.get_lock(project_id, model_id)
         with lock:
             if (project_id, model_id) not in self.metrics_cache:
-                log.info(f"Fetching metrics for model {model_id}")
+                # log.info(f"Fetching metrics for model {model_id}")
                 model = dr.Model.get(project_id, model_id)  # type: ignore
                 metrics = model.metrics
                 self.metrics_cache[(project_id, model_id)] = metrics  # type: ignore
             else:
-                log.info(f"Using cached metrics for model {model_id}")
+                # log.info(f"Using cached metrics for model {model_id}")
                 metrics = self.metrics_cache[(project_id, model_id)]
 
         if re.match(r"^\d+(\.0)?$", data_subset):

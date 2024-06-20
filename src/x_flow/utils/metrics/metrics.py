@@ -1,8 +1,9 @@
-import logging
 from abc import ABC, abstractmethod
-from typing import Dict, Optional
+import logging
+from typing import Any, Dict, Optional
 
 import pandas as pd
+
 from x_flow.utils.operator import Operator
 
 log = logging.getLogger(__name__)
@@ -15,7 +16,7 @@ log = logging.getLogger(__name__)
 
 
 class Metric(ABC):
-    def __init__(self, data_type: str, name: str, higher_is_better: Dict[str, bool]):
+    def __init__(self, data_type: str, name: str, higher_is_better: dict[str, bool]):
         self.data_type = data_type  # 'binary' or 'continuous'
         self.name = name
         self.higher_is_better = higher_is_better
@@ -26,14 +27,17 @@ class Metric(ABC):
         actuals: pd.Series,
         predictions: pd.Series,
         extra_data: Optional[pd.DataFrame],
-        experiment_config: Optional[Dict],
-        metric_config: Optional[Dict],
-        metadata: Optional[Dict],
-    ) -> Dict[str, float]:
+        experiment_config: dict[str, Any],
+        metric_config: Optional[Dict[str, Any]],
+        metadata: Optional[Dict[str, Any]],
+    ) -> dict[str, Optional[float]]:
         pass
 
     def preprocess(
-        self, predictions: pd.Series, experiment_config: dict, metric_config: dict
+        self,
+        predictions: pd.Series,
+        experiment_config: dict[str, Any],
+        metric_config: dict[str, Any],
     ) -> pd.Series:
         """
         Preprocesses the predictions based on the specified data type of the metric, particularly for binary classification.
@@ -51,11 +55,13 @@ class Metric(ABC):
                                 fully specify binarization. It must contain a 'binarize_data_config' key with sub-keys
                                 'operator' and 'threshold' for binarization.
 
-        Returns:
+        Returns
+        -------
             pd.Series: The preprocessed predictions, which may be binarized if specified by the configurations. If the
                     metric's data type is not 'binary', the predictions are returned unchanged.
 
-        Raises:
+        Raises
+        ------
             ValueError: If the necessary binarization parameters are missing in both configurations when required,
                         or if the 'experiment_config' or 'metric_config' itself is not provided when needed.
         """
@@ -92,10 +98,10 @@ class Metric(ABC):
 
 
 class MetricFactory:
-    metrics = {}
+    metrics: dict[str, Metric] = {}
 
     @classmethod
-    def register_metric(cls, name: str, metric: Metric):
+    def register_metric(cls, name: str, metric: Metric) -> None:
         cls.metrics[name] = metric
 
     @classmethod
@@ -106,14 +112,12 @@ class MetricFactory:
         return metric
 
 
-def get_otv_metrics(metrics_dict: Dict, backtest_index: int) -> Dict[str, float]:
+def get_otv_metrics(metrics_dict: dict[str, Any], backtest_index: int) -> dict[str, float]:
     otv_metrics = {}
     for metric_name, stats in metrics_dict.items():
         if "backtestingScores" in stats:
             try:
-                otv_metrics[f"{metric_name}"] = stats["backtestingScores"][
-                    backtest_index
-                ]
+                otv_metrics[f"{metric_name}"] = stats["backtestingScores"][backtest_index]
             except IndexError:
                 log.warning(
                     f"Backtest index {backtest_index} is out of range for metric {metric_name}"
@@ -124,7 +128,7 @@ def get_otv_metrics(metrics_dict: Dict, backtest_index: int) -> Dict[str, float]
     return otv_metrics
 
 
-def get_holdout_metrics(metrics_dict: Dict) -> Dict[str, float]:
+def get_holdout_metrics(metrics_dict: dict[str, Any]) -> dict[str, float]:
     holdout_metrics = {}
     for metric_name, stats in metrics_dict.items():
         try:

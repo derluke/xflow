@@ -1,8 +1,3 @@
-"""
-This is a boilerplate pipeline 'config'
-generated using Kedro 0.19.3
-"""
-
 from .pipeline import create_pipeline
 
 __all__ = ["create_pipeline"]

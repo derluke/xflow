@@ -1,9 +1,10 @@
 try:
-    from datarobot import UseCase  # type: ignore
+    from datarobot import UseCase  # type: ignore  # noqa: F401
+
     from datarobotx.idp.use_cases import get_or_create_use_case  # type: ignore
 except ImportError:
 
-    def get_or_create_use_case(*args, **kwags):
+    def get_or_create_use_case(*args, **kwags):  # type: ignore
         return "not_supported"
 
 
@@ -16,8 +17,8 @@ from .nodes import (
     calculate_backtests,
     get_backtest_predictions,
     get_external_predictions,
-    get_or_create_use_case_with_lock,
     get_or_create_dataset_from_df_with_lock,
+    get_or_create_use_case_with_lock,
     preprocessing_fit_transform,
     preprocessing_transform,
     register_binarize_preprocessor,

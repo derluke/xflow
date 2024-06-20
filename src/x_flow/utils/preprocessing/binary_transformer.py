@@ -1,4 +1,4 @@
-from ..data import Data
+from ..data import Data, TrainingData
 from ..operator import Operator
 from .data_preprocessor import DataPreprocessor
 
@@ -8,28 +8,28 @@ class BinarizeData(DataPreprocessor):
         self,
         binarize_threshold: float,
         binarize_operator: str,
-        binarize_drop_regression_target=True,
-        binarize_new_target_name="target_cat",
-    ):
+        binarize_drop_regression_target: bool = True,
+        binarize_new_target_name: str = "target_cat",
+    ) -> None:
         self._threshold = binarize_threshold
         self._operator = binarize_operator
         self._binarize_drop_regression_target = binarize_drop_regression_target
         self._binarize_new_target_name = binarize_new_target_name
 
-    def _fit(self, df: Data):
+    def _fit(self, df: Data) -> DataPreprocessor:
         return self
 
     def _transform(self, df: Data) -> Data:
-        """Helper function: binarize a target variable for classification"""
+        if not isinstance(df, TrainingData):
+            raise ValueError("BinarizeData can only be applied to TrainingData.")
+        """Helper function: binarize a target variable for classification."""
         categorical_data = df.rendered_df
         target_series = categorical_data[df.target_column]
 
         op_fun = Operator(operator=self._operator).apply_operation(self._threshold)
 
         # Apply the operation and create a new boolean column
-        categorical_data[self._binarize_new_target_name] = target_series.apply(
-            op_fun
-        ).astype(bool)
+        categorical_data[self._binarize_new_target_name] = target_series.apply(op_fun).astype(bool)
 
         # Optionally drop the original target column
         if self._binarize_drop_regression_target:

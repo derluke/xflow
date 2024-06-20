@@ -1,24 +1,13 @@
-"""
-This is a boilerplate pipeline 'experiment'
-generated using Kedro 0.19.3
-"""
-
+from dataclasses import asdict
 import logging
 import os
 import time
-from dataclasses import asdict
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Union
 
-# pyright: reportPrivateImportUsage=false
-import datarobot as dr
-import pandas as pd
-from datarobot.rest import RESTClientObject
-from datarobotx.idp.autopilot import get_or_create_autopilot_run
-from datarobotx.idp.common.hashing import get_hash
-from datarobotx.idp.datasets import get_or_create_dataset_from_df
-from datarobotx.idp.use_cases import get_or_create_use_case
 from filelock import FileLock
 from joblib import Parallel, delayed
+import pandas as pd
+import requests
 
 from x_flow.utils.data import (
     Data,
@@ -37,11 +26,20 @@ from x_flow.utils.preprocessing.binary_transformer import BinarizeData
 from x_flow.utils.preprocessing.data_preprocessor import DataPreprocessor, Identity
 from x_flow.utils.preprocessing.fire import FIRE
 
+# pyright: reportPrivateImportUsage=false
+import datarobot as dr
+from datarobot.rest import RESTClientObject
+
+from datarobotx.idp.autopilot import get_or_create_autopilot_run
+from datarobotx.idp.common.hashing import get_hash
+from datarobotx.idp.datasets import get_or_create_dataset_from_df
+from datarobotx.idp.use_cases import get_or_create_use_case
+
 try:
     from datarobot import UseCase  # type: ignore
 except:
 
-    class UseCase:
+    class UseCase:  # type: ignore[no-redef]
         def __init__(self, id: Optional[str], name: str):
             self.id = id
             self.name = name
@@ -61,7 +59,7 @@ rate_limiter = RateLimiterSemaphore(25)
 client_request_fun = RESTClientObject.request
 
 
-def request_with_rate_limiter(*args, **kwargs):
+def request_with_rate_limiter(*args: Any, **kwargs: Any) -> requests.Response:
     rate_limiter.acquire()
     try:
         response = client_request_fun(*args, **kwargs)
@@ -80,7 +78,7 @@ def request_with_rate_limiter(*args, **kwargs):
     return response
 
 
-RESTClientObject.request = request_with_rate_limiter
+RESTClientObject.request = request_with_rate_limiter  # type: ignore[method-assign]
 
 log = logging.getLogger(__name__)
 
@@ -92,8 +90,12 @@ for handler in dr_logger.handlers:
 
 
 def unpack_row_to_args(
-    control_series: Dict, arg_look: Dict, arg_values_dict=None, verbose=False
+    control_series: dict[str, Any],
+    arg_look: Dict[str, Any],
+    arg_values_dict: Optional[Dict[str, Any]] = None,
+    verbose: bool = False,
 ) -> dict[str, Any]:
+    # Your code here
     if arg_values_dict is None:
         # initialise the dict with a control entry
         arg_values_dict = {"_control": {}}
@@ -167,7 +169,7 @@ def preprocessing_transform(data: Data, *transformations: DataPreprocessor) -> D
     return data
 
 
-def register_binarize_preprocessor(binarize_data_config: Dict) -> DataPreprocessor:
+def register_binarize_preprocessor(binarize_data_config: dict[str, Any]) -> DataPreprocessor:
     if binarize_data_config is None:
         transformer = Identity()
     else:
@@ -175,7 +177,7 @@ def register_binarize_preprocessor(binarize_data_config: Dict) -> DataPreprocess
     return transformer
 
 
-def register_fire_preprocessor(fire_config: Dict) -> DataPreprocessor:
+def register_fire_preprocessor(fire_config: dict[str, Any]) -> DataPreprocessor:
     if fire_config is None:
         transformer = Identity()
     else:
@@ -214,9 +216,7 @@ def get_or_create_dataset_from_df_with_lock(
         name = f"{name}_{group}" if (group != "__all_data__") else name
         df_token = get_hash(df, use_case_id, name)
 
-        with FileLock(
-            os.path.join(".locks", f"get_or_create_dataset_from_df_{df_token}.lock")
-        ):
+        with FileLock(os.path.join(".locks", f"get_or_create_dataset_from_df_{df_token}.lock")):
             df_id = get_or_create_dataset_from_df(
                 token=token,
                 endpoint=endpoint,
@@ -251,9 +251,9 @@ def run_autopilot(  # noqa: PLR0913
     token: str,
     endpoint: str,
     df: TrainingData,
-    dataset_dict: Dict[str, str],
+    dataset_dict: dict[str, str],
     use_case_id: str,
-    experiment_config: Dict,
+    experiment_config: dict[str, Any],
 ) -> Dict[str, str]:
     if use_case_id == "not_supported":
         use_case_id = None  # type: ignore
@@ -262,11 +262,11 @@ def run_autopilot(  # noqa: PLR0913
         name: str,
         use_case: str,
         dataset_id: str,
-        advanced_options_config: Dict,
-        analyze_and_model_config: Dict,
-        create_from_dataset_config: Dict,
-        datetime_partitioning_config: Dict,
-        feature_settings_config: List[Dict],
+        advanced_options_config: dict[str, Any],
+        analyze_and_model_config: dict[str, Any],
+        create_from_dataset_config: dict[str, Any],
+        datetime_partitioning_config: Optional[dict[str, Any]],
+        feature_settings_config: list[dict[str, Any]],
     ) -> Optional[str]:
         try:
             project_id = get_or_create_autopilot_run(
@@ -288,14 +288,14 @@ def run_autopilot(  # noqa: PLR0913
 
     return_dict = {}
 
-    jobs = {}
+    jobs: dict[str, List[Any]] = {}
     for group, dataset_id in dataset_dict.items():
         jobs[group] = []
 
         project_name = experiment_config["experiment_name"]
         if group != "__all_data__":
             project_name = f"{project_name} ({group})"
-        log.info(f"Experiment Config: {experiment_config}")
+        # log.info(f"Experiment Config: {experiment_config}")
         experiment_config["analyze_and_model"]["target"] = df.target_column
 
         jobs[group].append(
@@ -305,12 +305,8 @@ def run_autopilot(  # noqa: PLR0913
                 dataset_id=dataset_id,
                 advanced_options_config=experiment_config.get("advanced_options", {}),
                 analyze_and_model_config=experiment_config.get("analyze_and_model", {}),
-                create_from_dataset_config=experiment_config.get(
-                    "create_from_dataset", {}
-                ),
-                datetime_partitioning_config=experiment_config.get(
-                    "datetime_partitioning", {}
-                ),
+                create_from_dataset_config=experiment_config.get("create_from_dataset", {}),
+                datetime_partitioning_config=experiment_config.get("datetime_partitioning", {}),
                 feature_settings_config=experiment_config.get("feature_settings", {}),
             )
         )
@@ -326,10 +322,10 @@ def run_autopilot(  # noqa: PLR0913
 
 
 def unlock_holdouts(
-    project_dict: Dict[str, str],
-):
+    project_dict: dict[str, str],
+) -> bool:
     for _, project_id in project_dict.items():
-        project = dr.Project.get(project_id)
+        project = dr.Project.get(project_id)  # type: ignore[attr-defined]
         project.unlock_holdout()
     return True
 
@@ -348,8 +344,7 @@ def calculate_backtests(
 ) -> bool:
     assert holdouts_unlocked, "Holdouts have not been unlocked"
 
-    def _calculate_backtest(model: dr.DatetimeModel):
-        # if rate_limiter.acquire():
+    def _calculate_backtest(model: dr.DatetimeModel) -> None:
         try:
             job = model.score_backtests()
             job.wait_for_completion()
@@ -358,18 +353,15 @@ def calculate_backtests(
                 "All available backtests have already been scored.",
                 "This job duplicates a job or jobs that are in the queue or have completed.",
             ]:
-                # log.info(f"Backtests already calculated for model {model.id}")
                 pass
             else:
                 raise e
-            # finally:
-            #     rate_limiter.release()
 
-    all_models = []
+    all_models: List[dr.DatetimeModel] = []
     for _, project_id in project_dict.items():
-        project = dr.Project.get(project_id)
+        project = dr.Project.get(project_id)  # type: ignore[attr-defined]
         models = get_models(project)[:max_models_per_project]
-        all_models.extend(models)
+        all_models.extend(models)  # type: ignore[arg-type]
 
     Parallel(n_jobs=100, backend="threading")(
         delayed(_calculate_backtest)(model) for model in all_models
@@ -377,7 +369,7 @@ def calculate_backtests(
     # wait for all jobs on the project to complete
     jobs = []
     for project_id in project_dict.values():
-        project = dr.Project.get(project_id)
+        project = dr.Project.get(project_id)  # type: ignore[attr-defined]
         jobs.extend(project.get_all_jobs())
 
     log.info("Waiting for backtesting jobs to complete")
@@ -390,9 +382,7 @@ def get_backtest_predictions(
     project_dict: Dict[str, str],
     df: ValidationData,
     # backtests_completed: bool,
-    data_subset: Optional[
-        Union[dr.enums.DATA_SUBSET, str]
-    ] = dr.enums.DATA_SUBSET.ALL_BACKTESTS,
+    data_subset: Optional[Union[dr.enums.DATA_SUBSET, str]] = dr.enums.DATA_SUBSET.ALL_BACKTESTS,
     max_models_per_project: int = 5,
 ) -> Dict[str, ValidationPredictionData]:
     """
@@ -405,11 +395,11 @@ def get_backtest_predictions(
         data_subset: The subset of data to use for predictions.
         max_models_per_project: Maximum number of models to fetch predictions for from each project.
 
-    Returns:
+    Returns
+    -------
         Dict[str, pd.DataFrame]: Dictionary with keys formatted as "{group}/{model.project_id}/{model.id}/{partition_id}"
         and values as DataFrames with predictions.
     """
-
     # if not backtests_completed:
     #     raise ValueError("Backtests have not been completed")
 
@@ -431,7 +421,7 @@ def get_backtest_predictions(
     tasks = (
         delayed(_get_backtest_predictions)(model, group)
         for group, project_id in project_dict.items()
-        for model in get_models(dr.Project.get(project_id))[:max_models_per_project]
+        for model in get_models(dr.Project.get(project_id))[:max_models_per_project]  # type: ignore[attr-defined]
     )
 
     results = Parallel(n_jobs=100, backend="threading")(tasks)
@@ -449,7 +439,7 @@ def get_external_predictions(
     max_models_per_project: int = 5,
 ) -> Dict[str, ValidationPredictionData]:
     """
-    Retrieves external predictions for models across multiple projects, using external holdout data.
+    Retrieve external predictions for models across multiple projects, using external holdout data.
 
     Args:
         project_dict: Dictionary mapping group names to project IDs.
@@ -458,7 +448,8 @@ def get_external_predictions(
         max_models_per_project: Maximum number of models to consider per project.
         group_data: Optional dictionary specifying how to group data, default is None.
 
-    Returns:
+    Returns
+    -------
         Dictionary of formatted strings (group/model ID/partition ID) to their respective DataFrame of predictions.
     """
 
@@ -478,7 +469,7 @@ def get_external_predictions(
     tasks = (
         delayed(_get_external_predictions)(model, df_dict[group], group)
         for group, project_id in project_dict.items()
-        for model in get_models(dr.Project.get(project_id))[:max_models_per_project]
+        for model in get_models(dr.Project.get(project_id))[:max_models_per_project]  # type: ignore[attr-defined]
     )
 
     results = Parallel(n_jobs=100, backend="threading")(tasks)
@@ -489,13 +480,3 @@ def get_external_predictions(
         aggregated_results.update(result)  # type: ignore
 
     return aggregated_results
-
-
-def get_datarobot_metrics(
-    project_dict: Dict[str, str],
-):
-    for group, project_id in project_dict.items():
-        project = dr.Project.get(project_id)
-
-        for model in get_models(project):
-            model.metrics

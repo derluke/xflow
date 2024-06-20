@@ -1,23 +1,25 @@
+from ..data import Data, TrainingData
+from .data_preprocessor import DataPreprocessor
+from .fire_implementation import FIRE as FireHelper
+
 from datarobotx.idp.autopilot import get_or_create_autopilot_run
 from datarobotx.idp.common.hashing import get_hash
 from datarobotx.idp.datasets import get_or_create_dataset_from_df
 
-from ..data import Data
-from .data_preprocessor import DataPreprocessor
-from .fire_implementation import FIRE as FireHelper
-
 
 class FIRE(DataPreprocessor):
-    def __init__(self, endpoint: str, token: str, **kwargs):
+    def __init__(self, endpoint: str, token: str, **kwargs) -> None:
         self._endpoint = endpoint
         self._token = token
         self._fire_kwargs = kwargs
 
-    def _fit(self, df: Data):
+    def _fit(self, df: Data) -> "FIRE":
+        if not isinstance(df, TrainingData):
+            raise ValueError("FIRE requires TrainingData")
         dataset_id = get_or_create_dataset_from_df(
             endpoint=self._endpoint,
             token=self._token,
-            data_frame=df.rendered_df.to_pandas(),
+            data_frame=df.rendered_df.to_pandas(),  # type: ignore
             name="fire_dataset",
         )
         fire_token = get_hash(**self._fire_kwargs)
@@ -51,6 +53,6 @@ class FIRE(DataPreprocessor):
         return self
 
     def _transform(self, df: Data) -> Data:
-        """helper function: select features from FIRE project"""
+        """Helper function: select features from FIRE project."""
         df.columns = self._features
         return df

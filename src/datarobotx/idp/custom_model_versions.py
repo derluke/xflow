@@ -11,110 +11,172 @@
 # Released under the terms of DataRobot Tool and Utility Agreement.
 # https://www.datarobot.com/wp-content/uploads/2021/07/DataRobot-Tool-and-Utility-Agreement.pdf
 
-# mypy: disable-error-code="attr-defined"
-# pyright: reportPrivateImportUsage=false
-import json
 import pathlib
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
 import datarobot as dr
-from datarobot.utils import camelize, to_api
 
 from datarobotx.idp.common.hashing import get_hash
 
+try:
+    from datarobot.models.runtime_parameters import RuntimeParameterValue
+except ImportError as e:
+    raise ImportError(
+        "datarobot>=3.4.0 is required for custom model versions with runtime parameters"
+    ) from e
 
-def _find_existing_custom_model_version(custom_model_id: str, model_version_token: str) -> str:
-    for version in dr.CustomModelVersion.list(custom_model_id):
+
+def _find_existing_custom_model_version(
+    custom_model_id: str, model_version_token: str, from_previous: bool
+) -> str:
+    if from_previous:
+        versions = []
+        latest = dr.CustomInferenceModel.get(custom_model_id).latest_version  # type: ignore
+        if latest is not None:
+            versions.append(latest)
+    else:
+        versions = dr.CustomModelVersion.list(custom_model_id)  # type: ignore
+    for version in versions:
         if version.description is not None and model_version_token in version.description:
             return str(version.id)
     raise KeyError("No matching model version found")
 
 
-def _patch_custom_model_version(
-    endpoint: str,
-    token: str,
-    custom_model_id: str,
-    base_environment_id: str,
-    **kwargs: Any,
-) -> str:
-    url = f"customModels/{custom_model_id}/versions/"
-    kwargs["base_environment_id"] = base_environment_id
-    body = {camelize(k): v for k, v in kwargs.items()}
-    resp = dr.Client(token=token, endpoint=endpoint).patch(url=url, json=body)
-    return str(resp.json()["id"])
-
-
 def _ensure_dependency_build(custom_model_id: str, custom_model_version_id: str) -> None:
     try:
         assert (
-            dr.CustomModelVersionDependencyBuild.get_build_info(
+            dr.CustomModelVersionDependencyBuild.get_build_info(  # type: ignore
                 custom_model_id, custom_model_version_id
             ).build_status
             == "success"
         )
     except (dr.errors.ClientError, AssertionError):
-        dr.CustomModelVersionDependencyBuild.start_build(
+        dr.CustomModelVersionDependencyBuild.start_build(  # type: ignore
             custom_model_id, custom_model_version_id, max_wait=20 * 60
         )
 
 
-def get_or_create_custom_model_version(
+def _get_or_create(
+    from_previous: bool,
     endpoint: str,
     token: str,
     custom_model_id: str,
-    base_environment_id: str,
-    folder_path: str,
-    runtime_parameter_values: Optional[List[Dict[str, Any]]] = None,
+    runtime_parameter_values: Optional[List[Union[RuntimeParameterValue, Dict[str, Any]]]] = None,
+    args_to_hash: Optional[Any] = None,
     **kwargs: Any,
 ) -> str:
-    """Get or create a custom model version with requested parameters.
+    if runtime_parameter_values is not None:
+        runtime_parameter_values_objs = [
+            RuntimeParameterValue(**d) for d in runtime_parameter_values if isinstance(d, dict)
+        ]
+    else:
+        runtime_parameter_values_objs = None
+
+    dr.Client(token=token, endpoint=endpoint)  # type: ignore
+    folder_path = kwargs.pop("folder_path", None)
+
+    model_version_token = get_hash(
+        Path(folder_path) if folder_path is not None else None,
+        custom_model_id,
+        args_to_hash,
+        runtime_parameter_values=runtime_parameter_values_objs,
+        **kwargs,
+    )
+
+    try:
+        existing_version_id = _find_existing_custom_model_version(
+            custom_model_id, model_version_token, from_previous
+        )
+        if folder_path is not None and (pathlib.Path(folder_path) / "requirements.txt").exists():
+            _ensure_dependency_build(custom_model_id, existing_version_id)
+        return existing_version_id
+
+    except KeyError:
+        if not from_previous:
+            create = dr.CustomModelVersion.create_clean  # type: ignore
+        else:
+            create = dr.CustomModelVersion.create_from_previous  # type: ignore
+        env_version = create(
+            custom_model_id,
+            folder_path=folder_path,
+            max_wait=20 * 60,
+            runtime_parameter_values=runtime_parameter_values_objs,
+            **kwargs,
+        )
+
+        env_version.update(description=f"\nChecksum: {model_version_token}")
+
+        if folder_path is not None and (pathlib.Path(folder_path) / "requirements.txt").exists():
+            _ensure_dependency_build(custom_model_id, env_version.id)
+        return str(env_version.id)
+
+
+def _unsafe_get_or_create_custom_model_version_from_previous(
+    endpoint: str,
+    token: str,
+    custom_model_id: str,
+    runtime_parameter_values: Optional[List[Union[RuntimeParameterValue, Dict[str, Any]]]] = None,
+    **kwargs: Any,
+) -> str:
+    """Get or create a custom model version from a previous version with requested parameters.
+
+    Unsafe here means that idempotency is not guaranteed! Running this function multiple times with different arguments can lead to undefined behaviour.
 
     Notes
     -----
     Records a checksum in the model version description field to allow future calls to this
     function to validate whether a desired model version already exists
     """
-    dr.Client(token=token, endpoint=endpoint)
-    model_version_token = get_hash(
-        Path(folder_path),
-        custom_model_id,
-        base_environment_id,
+    return _get_or_create(
+        from_previous=True,
+        endpoint=endpoint,
+        token=token,
+        custom_model_id=custom_model_id,
         runtime_parameter_values=runtime_parameter_values,
         **kwargs,
     )
 
-    try:
-        existing_version_id = _find_existing_custom_model_version(
-            custom_model_id, model_version_token
-        )
-        if (pathlib.Path(folder_path) / "requirements.txt").exists():
-            _ensure_dependency_build(custom_model_id, existing_version_id)
-        return existing_version_id
 
-    except KeyError:
-        env_version = dr.CustomModelVersion.create_clean(
-            custom_model_id,
-            base_environment_id,
-            folder_path=folder_path,
-            max_wait=20 * 60,
-            **kwargs,
-        )
-        if runtime_parameter_values is not None:
-            env_version_id = _patch_custom_model_version(
-                endpoint,
-                token,
-                custom_model_id,
-                base_environment_id,
-                is_major_update="false",
-                runtime_parameter_values=json.dumps(
-                    [to_api(param) for param in runtime_parameter_values]
-                ),
-            )
-            env_version = dr.CustomModelVersion.get(custom_model_id, env_version_id)
+def get_or_create_custom_model_version(
+    endpoint: str,
+    token: str,
+    custom_model_id: str,
+    runtime_parameter_values: Optional[List[Union[RuntimeParameterValue, Dict[str, Any]]]] = None,
+    **kwargs: Any,
+) -> str:
+    """Get or create a custom model version with requested parameters.
 
-        env_version.update(description=f"\nChecksum: {model_version_token}")  # pylint: disable=no-member
+    For a complete list of supported arguments, please refer to datarobot.CustomModelVersion.create_clean
 
-        if (pathlib.Path(folder_path) / "requirements.txt").exists():
-            _ensure_dependency_build(custom_model_id, env_version.id)  # pylint: disable=no-member
-        return str(env_version.id)  # pylint: disable=no-member
+    Parameters
+    ----------
+    custom_model_id : str
+        The ID of the custom model to create a version for.
+    runtime_parameter_values : Optional[List[Union[RuntimeParameterValue, Dict[str, Any]]]], optional
+        The values for the runtime parameters. See datarobot.models.runtime_parameters.RuntimParameterValue for more information.
+        Example runtime parameter values:
+        [
+            {
+                "field_name": "OPENAI_API_KEY",
+                "type": "credential",
+                "value": <CREDENTIAL_ID>,
+            },
+            ...
+        ]
+     kwargs : Any, optional
+        Additional arguments to pass to the model version creation call.
+
+    Notes
+    -----
+    Records a checksum in the model version description field to allow future calls to this
+    function to validate whether a desired model version already exists
+    """
+    return _get_or_create(
+        from_previous=False,
+        endpoint=endpoint,
+        token=token,
+        custom_model_id=custom_model_id,
+        runtime_parameter_values=runtime_parameter_values,
+        **kwargs,
+    )
