@@ -3,7 +3,7 @@ from dataclasses import asdict, dataclass
 import datetime
 import json
 from pathlib import Path
-from typing import Optional, Union
+from typing import Any, Optional, Union
 
 from kedro.io import AbstractDataset
 import pandas as pd
@@ -35,8 +35,8 @@ class Data:
             columns = set(self.columns)
             if self.date_column:
                 columns.add(self.date_column)
-            if hasattr(self, "target_column") and self.target_column:  # type: ignore
-                columns.add(self.target_column)  # type: ignore
+            if hasattr(self, "target_column") and self.target_column:
+                columns.add(self.target_column)
             if self.partition_column:
                 columns.add(self.partition_column)
             if isinstance(self.date_partition_column, str):
@@ -48,7 +48,7 @@ class Data:
             df[self.date_column] = pd.to_datetime(df[self.date_column], format=self.date_format)
         return df
 
-    def get_date_partitions(self):
+    def get_date_partitions(self) -> dict[str, pd.DataFrame]:
         df = self.rendered_df
         if self.date_column is None:
             raise ValueError("date column is not set")
@@ -57,7 +57,9 @@ class Data:
         if self.date_partition_column is None:
             return {"__all__": df}
         elif isinstance(self.date_partition_column, str):
-            return {group: group_df for group, group_df in df.groupby(self.date_partition_column)}
+            return {
+                str(group): group_df for group, group_df in df.groupby(self.date_partition_column)
+            }
         elif isinstance(self.date_partition_column, list):
             partition_dates = self.date_partition_column
             return {
@@ -85,18 +87,21 @@ class TrainingData(Data):
 
 
 @dataclass(kw_only=True)
-class ValidationData(TrainingData): ...
+class ValidationData(TrainingData):
+    ...
 
 
 @dataclass(kw_only=True)
-class ValidationPredictionData(ValidationData): ...
+class ValidationPredictionData(ValidationData):
+    ...
 
 
 @dataclass(kw_only=True)
-class PredictionData(Data): ...
+class PredictionData(Data):
+    ...
 
 
-class_map = {
+class_map: dict[str, type] = {
     "Data": Data,
     "TrainingData": TrainingData,
     "ValidationData": ValidationData,
@@ -105,8 +110,8 @@ class_map = {
 }
 
 
-class XFlowDataset(AbstractDataset):
-    def __init__(self, filepath: str, **kwargs):
+class XFlowDataset(AbstractDataset[Data, Data]):
+    def __init__(self, filepath: str, **kwargs: Any):
         self._filepath = filepath
         self.kwargs = kwargs
         load_args = kwargs.get("load_args", {})
@@ -115,11 +120,12 @@ class XFlowDataset(AbstractDataset):
             raise ValueError(f"load_class must be one of {list(class_map.keys())}")
         self.load_class = load_class
 
-    def _load(self, **kwargs) -> Data:
+    def _load(self, **kwargs: Any) -> Data:
         df = pd.read_csv(Path(self._filepath))
         with open(Path(self._filepath).parent / "metadata.json") as f:
             metadata = json.load(f)
-        return class_map[self.load_class](df=df, **metadata)
+        instance: Data = class_map[self.load_class](df=df, **metadata)
+        return instance
 
     def _save(self, data: Data) -> None:
         Path(self._filepath).mkdir(parents=True, exist_ok=True)
@@ -129,7 +135,7 @@ class XFlowDataset(AbstractDataset):
         with open(Path(self._filepath) / "metadata.json", "w") as f:
             json.dump(metadata, f, default=str)
 
-    def _describe(self) -> dict:
+    def _describe(self) -> dict[str, Any]:
         return dict(
             filepath=self._filepath,
             **self.kwargs,

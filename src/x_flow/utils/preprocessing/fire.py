@@ -8,12 +8,14 @@ from datarobotx.idp.datasets import get_or_create_dataset_from_df
 
 
 class FIRE(DataPreprocessor):
-    def __init__(self, endpoint: str, token: str, **kwargs):
+    def __init__(self, endpoint: str, token: str, **kwargs) -> None:
         self._endpoint = endpoint
         self._token = token
         self._fire_kwargs = kwargs
 
-    def _fit(self, df: TrainingData):
+    def _fit(self, df: Data) -> "FIRE":
+        if not isinstance(df, TrainingData):
+            raise ValueError("FIRE requires TrainingData")
         dataset_id = get_or_create_dataset_from_df(
             endpoint=self._endpoint,
             token=self._token,

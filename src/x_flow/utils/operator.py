@@ -7,7 +7,7 @@ class Operator(BaseModel):
     operator: str = Field(...)
 
     @field_validator("operator")
-    def normalize_operation(cls, v):
+    def normalize_operation(cls, v: str) -> str:
         operation_mapping = {
             "<": ["lt", "less than", "less"],
             ">": ["gt", "greater than", "greater"],

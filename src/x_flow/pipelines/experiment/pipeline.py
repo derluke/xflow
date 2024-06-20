@@ -1,9 +1,10 @@
 try:
     from datarobot import UseCase  # type: ignore  # noqa: F401
+
     from datarobotx.idp.use_cases import get_or_create_use_case  # type: ignore
 except ImportError:
 
-    def get_or_create_use_case(*args, **kwags):
+    def get_or_create_use_case(*args, **kwags):  # type: ignore
         return "not_supported"
 
 

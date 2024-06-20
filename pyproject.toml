@@ -1,7 +1,3 @@
-[build-system]
-requires = ["setuptools"]
-build-backend = "setuptools.build_meta"
-
 [project]
 name = "x_flow"
 readme = "README.md"
@@ -14,14 +10,6 @@ x-flow = "x_flow.__main__:main"
 
 [project.optional-dependencies]
 
-[tool.setuptools.dynamic]
-dependencies = { file = "requirements.txt" }
-version = { attr = "x_flow.__version__" }
-
-[tool.setuptools.packages.find]
-where = ["src"]
-namespaces = false
-
 [tool.kedro]
 package_name = "x_flow"
 project_name = "X Flow"
@@ -30,18 +18,22 @@ tools = ['None']
 example_pipeline = "False"
 source_dir = "src"
 
-[tool.pytest.ini_options]
-addopts = """
---cov-report term-missing \
---cov src/x_flow -ra"""
+[build-system]
+requires = ["setuptools >= 65.5.0", "wheel>=0.42.0"]
+build-backend = "setuptools.build_meta"
 
-[tool.coverage.report]
-fail_under = 0
-show_missing = true
-exclude_lines = ["pragma: no cover", "raise NotImplementedError"]
+[tool.setuptools.dynamic]
+dependencies = { file = ["requirements.txt"] }
+optional-dependencies = { dev = { file = ["dev-requirements.txt"] } }
+
+[tool.setuptools.packages.find]
+where = ["."]
+# include = ["x_flow.*"]
 
 [tool.ruff]
 line-length = 100
+src = ["src"]
+
 
 [tool.ruff.lint]
 select = ["F", "I"]
@@ -53,3 +45,12 @@ convention = "numpy"
 [tool.ruff.lint.isort]
 force-sort-within-sections = true
 forced-separate = ["datarobot", "datarobotx"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.mypy]
+
+[[tool.mypy.overrides]]
+module = ["fsspec", "requests_toolbelt", "joblib", "kedro_boot.*", "sklearn.*"]
+ignore_missing_imports = true

@@ -4,7 +4,7 @@ generated using Kedro 0.19.3.
 """
 
 import logging
-from typing import Callable, List, Optional, TypeAlias
+from typing import Any, Callable, List, Optional, TypeAlias
 
 from joblib import Parallel, delayed
 import pandas as pd
@@ -95,14 +95,14 @@ def _load_and_index(row: pd.Series) -> pd.DataFrame:
 
 
 def calculate_metrics(
-    experiment_config: dict,
+    experiment_config: dict[str, Any],
     predictions: dict[str, ValidationPredictionData],
-    metric_config: dict,
+    metric_config: dict[str, Any],
     metrics: List[str],
-):
+) -> pd.DataFrame:
     experiment_name = experiment_config["experiment_name"]
     metadata_df = pd.DataFrame([k.replace(".csv", "").split("/")[:-1] for k in predictions])
-    metadata_df.columns = [
+    metadata_df.columns = [  # type: ignore[assignment]
         "partition",
         "project_id",
         "model_id",
@@ -114,25 +114,25 @@ def calculate_metrics(
         data_subset: dr.enums.DATA_SUBSET,
         df: pd.DataFrame,
         experiment_name: str,
-        metrics: List[str],
-        experiment_config: dict,
-        metric_config: dict,
-    ):
+        metrics: list[str],
+        experiment_config: dict[str, Any],
+        metric_config: dict[str, Any],
+    ) -> list[dict[str, Any]]:
         # This will store all the metadata for the current group
         group_metrics_list = []
 
         for (project_id, model_id), model_df in df.groupby(["project_id", "model_id"]):
             load_functions = model_df["load_function"].to_list()
             validation_predictions = [load_function() for load_function in load_functions]
-            all_predictions = []
+            all_predictions_list = []
             for validation_prediction in validation_predictions:
                 rendered_df = validation_prediction.rendered_df
                 rendered_df["project_id"], rendered_df["model_id"] = (
                     project_id,
                     model_id,
                 )
-                all_predictions.append(rendered_df)
-            all_predictions = pd.concat(all_predictions)
+                all_predictions_list.append(rendered_df)
+            all_predictions = pd.concat(all_predictions_list)
 
             target_column = {
                 validation_prediction.target_column

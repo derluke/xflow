@@ -15,13 +15,14 @@ import pandas as pd
 
 import datarobot as dr
 from datarobot.utils import retry
+
 from datarobotx.idp.common.hashing import get_hash
 
 log = logging.getLogger(__name__)
 
 
 class RateLimiterSemaphore:
-    def __init__(self, rate):
+    def __init__(self, rate: int) -> None:
         self.rate = rate
         self.semaphore = threading.Semaphore(rate)
         self.lock = threading.Lock()
@@ -29,20 +30,20 @@ class RateLimiterSemaphore:
         self.timer.daemon = True
         self.timer.start()
 
-    def reset_semaphore(self):
+    def reset_semaphore(self) -> None:
         with self.lock:
             self.semaphore = threading.Semaphore(self.rate)
         self.timer = threading.Timer(1.0, self.reset_semaphore)
         self.timer.daemon = True
         self.timer.start()
 
-    def acquire(self):
+    def acquire(self) -> bool:
         return self.semaphore.acquire()
 
-    def release(self):
+    def release(self) -> None:
         return self.semaphore.release()
 
-    def stop(self):
+    def stop(self) -> None:
         self.timer.cancel()
 
 
@@ -123,7 +124,7 @@ def get_training_predictions(
         ):
             log.error(e)
             return None
-        all_training_predictions = dr.TrainingPredictions.list(project_id=model.project_id)
+        all_training_predictions = dr.TrainingPredictions.list(project_id=model.project_id)  # type: ignore[attr-defined]
         tp = [
             tp
             for tp in all_training_predictions
@@ -235,12 +236,12 @@ def calculate_stats(  # noqa: PLR0912,PLR0915
     project.set_worker_count(-1)
     assert project.id
 
-    def wait_for_jobs(jobs: list[dr.Job]) -> None:
+    def wait_for_jobs(jobs: list[Optional[dr.Job]]) -> None:
         """Wait for a list of jobs to complete."""
-        jobs = [j for j in jobs if j]
+        job_list = [j for j in jobs if j]
         for _, seconds_waited in retry.wait(24 * 60 * 60, maxdelay=20.0):
             # summarise the statuses by count of the jobs in the list
-            job_status = Counter([j.status for j in jobs if j])
+            job_status = Counter([j.status for j in job_list if j])
             # log.info the summary
 
             inprogress = job_status[
@@ -261,7 +262,7 @@ def calculate_stats(  # noqa: PLR0912,PLR0915
             if not (job_status["queue"] > 0 or job_status["inprogress"] > 0):
                 break
             else:
-                for j in jobs:
+                for j in job_list:
                     j.refresh()
 
     if isinstance(models, int):
@@ -282,7 +283,7 @@ def calculate_stats(  # noqa: PLR0912,PLR0915
 
     def calculate_shap_impact(m: dr.Model) -> Optional[dr.Job]:
         try:
-            return dr.ShapImpact.create(project_id=m.project_id, model_id=m.id)
+            return dr.ShapImpact.create(project_id=m.project_id, model_id=m.id)  # type: ignore[attr-defined]
         except Exception as e:  # pylint: disable=broad-except
             if verbose:
                 log.info(e)
@@ -326,7 +327,7 @@ def calculate_stats(  # noqa: PLR0912,PLR0915
             return None
 
     # calculate FI for all models
-    jobs = []
+    jobs: list[Optional[dr.Job]] = []
     for m in model_list:
         jobs.append(request_feature_impact(m))
     wait_for_jobs(jobs)

@@ -159,8 +159,11 @@ webserver_config.py
 logs/
 
 # datarobotx
-datarobotx/
+# datarobotx/
 
 
 *.lock
 *.pickle
+*.pkl
+stats.json
+.vscode

@@ -1,5 +1,6 @@
 import logging
 import pickle
+from typing import Any
 
 from joblib import Parallel, delayed
 from kedro_boot.app import AbstractKedroBootApp
@@ -10,16 +11,16 @@ log = logging.getLogger(__name__)
 # TODO: datarobot version stuff
 
 
-class XFlowApp(AbstractKedroBootApp):
+class XFlowApp(AbstractKedroBootApp):  # type: ignore
     """Main application class for the XFlow project."""
 
-    def _run(self, kedro_boot_session: KedroBootSession):
-        def log_experiment_info(experiment_name, experiment):
+    def _run(self, kedro_boot_session: KedroBootSession) -> None:
+        def log_experiment_info(experiment_name: str, experiment: dict[str, Any]) -> None:
             log.info(f"Experiment_name: {experiment_name}")
             log.info("=" * 80)
             log.info(f"experiment: {experiment}")
 
-        def get_parameters(experiment, namespace):
+        def get_parameters(experiment: dict[str, Any], namespace: str) -> dict[str, Any]:
             if namespace == "experiment":
                 return {
                     "experiment_config": experiment,
@@ -37,8 +38,10 @@ class XFlowApp(AbstractKedroBootApp):
                     "experiment_name": experiment["experiment_name"],
                     "experiment_config": experiment,
                 }
+            else:
+                raise ValueError(f"Unknown namespace: {namespace}")
 
-        def run_namespace_session(experiment, namespace):
+        def run_namespace_session(experiment: dict[str, Any], namespace: str) -> dict[str, Any]:
             experiment_name = experiment["experiment_name"]
             log_experiment_info(experiment_name, experiment)
             output_dict = kedro_boot_session.run(
@@ -52,12 +55,14 @@ class XFlowApp(AbstractKedroBootApp):
                 "experiment_config": experiment,
             }
 
-        def run_experiments(experiments, namespace):
+        def run_experiments(
+            experiments: list[dict[str, Any]], namespace: str
+        ) -> list[dict[str, Any]]:
             results = Parallel(n_jobs=100, backend="threading")(
                 delayed(run_namespace_session)(experiment, namespace) for experiment in experiments
             )
             # log.info(f"{namespace}_results: {results}")
-            return results
+            return list(results)
 
         # leveraging config_loader to manage app's configs
         experiments = kedro_boot_session.run(namespace="config")

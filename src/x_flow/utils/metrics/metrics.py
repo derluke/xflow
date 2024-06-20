@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 import logging
-from typing import Dict, Optional
+from typing import Any, Dict, Optional
 
 import pandas as pd
 
@@ -16,7 +16,7 @@ log = logging.getLogger(__name__)
 
 
 class Metric(ABC):
-    def __init__(self, data_type: str, name: str, higher_is_better: Dict[str, bool]):
+    def __init__(self, data_type: str, name: str, higher_is_better: dict[str, bool]):
         self.data_type = data_type  # 'binary' or 'continuous'
         self.name = name
         self.higher_is_better = higher_is_better
@@ -27,14 +27,17 @@ class Metric(ABC):
         actuals: pd.Series,
         predictions: pd.Series,
         extra_data: Optional[pd.DataFrame],
-        experiment_config: Optional[Dict],
-        metric_config: Optional[Dict],
-        metadata: Optional[Dict],
-    ) -> Dict[str, float]:
+        experiment_config: dict[str, Any],
+        metric_config: Optional[Dict[str, Any]],
+        metadata: Optional[Dict[str, Any]],
+    ) -> dict[str, Optional[float]]:
         pass
 
     def preprocess(
-        self, predictions: pd.Series, experiment_config: dict, metric_config: dict
+        self,
+        predictions: pd.Series,
+        experiment_config: dict[str, Any],
+        metric_config: dict[str, Any],
     ) -> pd.Series:
         """
         Preprocesses the predictions based on the specified data type of the metric, particularly for binary classification.
@@ -95,10 +98,10 @@ class Metric(ABC):
 
 
 class MetricFactory:
-    metrics = {}
+    metrics: dict[str, Metric] = {}
 
     @classmethod
-    def register_metric(cls, name: str, metric: Metric):
+    def register_metric(cls, name: str, metric: Metric) -> None:
         cls.metrics[name] = metric
 
     @classmethod
@@ -109,7 +112,7 @@ class MetricFactory:
         return metric
 
 
-def get_otv_metrics(metrics_dict: Dict, backtest_index: int) -> Dict[str, float]:
+def get_otv_metrics(metrics_dict: dict[str, Any], backtest_index: int) -> dict[str, float]:
     otv_metrics = {}
     for metric_name, stats in metrics_dict.items():
         if "backtestingScores" in stats:
@@ -125,7 +128,7 @@ def get_otv_metrics(metrics_dict: Dict, backtest_index: int) -> Dict[str, float]
     return otv_metrics
 
 
-def get_holdout_metrics(metrics_dict: Dict) -> Dict[str, float]:
+def get_holdout_metrics(metrics_dict: dict[str, Any]) -> dict[str, float]:
     holdout_metrics = {}
     for metric_name, stats in metrics_dict.items():
         try:

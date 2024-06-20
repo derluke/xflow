@@ -28,6 +28,7 @@ from x_flow.utils.preprocessing.fire import FIRE
 # pyright: reportPrivateImportUsage=false
 import datarobot as dr
 from datarobot.rest import RESTClientObject
+
 from datarobotx.idp.autopilot import get_or_create_autopilot_run
 from datarobotx.idp.common.hashing import get_hash
 from datarobotx.idp.datasets import get_or_create_dataset_from_df
@@ -37,7 +38,7 @@ try:
     from datarobot import UseCase  # type: ignore
 except:
 
-    class UseCase:
+    class UseCase:  # type: ignore[no-redef]
         def __init__(self, id: Optional[str], name: str):
             self.id = id
             self.name = name
@@ -76,7 +77,7 @@ def request_with_rate_limiter(*args, **kwargs):
     return response
 
 
-RESTClientObject.request = request_with_rate_limiter
+RESTClientObject.request = request_with_rate_limiter  # type: ignore[method-assign]
 
 log = logging.getLogger(__name__)
 
@@ -282,7 +283,7 @@ def run_autopilot(  # noqa: PLR0913
 
     return_dict = {}
 
-    jobs = {}
+    jobs: dict[str, List[Any]] = {}
     for group, dataset_id in dataset_dict.items():
         jobs[group] = []
 
@@ -338,8 +339,7 @@ def calculate_backtests(
 ) -> bool:
     assert holdouts_unlocked, "Holdouts have not been unlocked"
 
-    def _calculate_backtest(model: dr.DatetimeModel):
-        # if rate_limiter.acquire():
+    def _calculate_backtest(model: dr.DatetimeModel) -> None:
         try:
             job = model.score_backtests()
             job.wait_for_completion()
@@ -348,18 +348,15 @@ def calculate_backtests(
                 "All available backtests have already been scored.",
                 "This job duplicates a job or jobs that are in the queue or have completed.",
             ]:
-                # log.info(f"Backtests already calculated for model {model.id}")
                 pass
             else:
                 raise e
-            # finally:
-            #     rate_limiter.release()
 
-    all_models = []
+    all_models: List[dr.DatetimeModel] = []
     for _, project_id in project_dict.items():
-        project = dr.Project.get(project_id)
+        project = dr.Project.get(project_id)  # type: ignore[attr-defined]
         models = get_models(project)[:max_models_per_project]
-        all_models.extend(models)
+        all_models.extend(models)  # type: ignore[arg-type]
 
     Parallel(n_jobs=100, backend="threading")(
         delayed(_calculate_backtest)(model) for model in all_models
@@ -367,7 +364,7 @@ def calculate_backtests(
     # wait for all jobs on the project to complete
     jobs = []
     for project_id in project_dict.values():
-        project = dr.Project.get(project_id)
+        project = dr.Project.get(project_id)  # type: ignore[attr-defined]
         jobs.extend(project.get_all_jobs())
 
     log.info("Waiting for backtesting jobs to complete")
