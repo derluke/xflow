@@ -88,7 +88,9 @@ class DataRobotMetrics(Metric):
 
         model_id = extra_data["model_id"].values[0]
         project_id = extra_data["project_id"].values[0]
-
+        if model_id is None or project_id is None:
+            log.warning("Model ID or Project ID is missing")
+            return {"datarobot_metrics": None}
         if metadata is None:
             log.warning("Metadata is not provided")
             return {"datarobot_metrics": None}

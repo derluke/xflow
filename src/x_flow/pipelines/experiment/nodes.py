@@ -60,7 +60,7 @@ client_request_fun = RESTClientObject.request
 
 
 def request_with_rate_limiter(*args: Any, **kwargs: Any) -> requests.Response:
-    rate_limiter.acquire()
+    # rate_limiter.acquire()
     try:
         response = client_request_fun(*args, **kwargs)
     except dr.errors.ClientError as e:
@@ -74,7 +74,7 @@ def request_with_rate_limiter(*args: Any, **kwargs: Any) -> requests.Response:
             response = client_request_fun(*args, **kwargs)
         else:
             raise e
-    rate_limiter.release()
+    # rate_limiter.release()
     return response
 
 

@@ -19,6 +19,7 @@ experiment:
     binarize_data_config:
     fire_config:
     partition_column:
+    main_metric: "generalized_f1"
   
 
 measure:
@@ -26,7 +27,7 @@ measure:
   metric_config:
     binarize_data_config:
       operator: ">"
-      threshold: 0
+      threshold: 100
     weights: weights
   metrics:
     - generalized_f1

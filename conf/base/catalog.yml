@@ -28,7 +28,7 @@ autopilot_run:
 
 experiment.backtests:
   type: partitions.PartitionedDataset
-  path: data/outputs/${itertime_params:experiment_name}/backtests/
+  path: data/outputs/experiments/${itertime_params:experiment_name}/backtests/
   dataset: 
     type: x_flow.utils.data.XFlowDataset
     load_args:
@@ -37,7 +37,7 @@ experiment.backtests:
 
 experiment.holdouts:
   type: partitions.PartitionedDataset
-  path: data/outputs/${itertime_params:experiment_name}/holdout/
+  path: data/outputs/experiments/${itertime_params:experiment_name}/holdout/
   dataset: 
     type: x_flow.utils.data.XFlowDataset
     load_args:
@@ -46,7 +46,7 @@ experiment.holdouts:
 
 experiment.external_holdout:
   type: partitions.PartitionedDataset
-  path: data/outputs/${itertime_params:experiment_name}/external_holdout/
+  path: data/outputs/experiments/${itertime_params:experiment_name}/external_holdout/
   dataset: 
     type: x_flow.utils.data.XFlowDataset
     load_args:
@@ -73,16 +73,54 @@ experiment.backtests_grouped:
 
 measure.holdout_metrics:
   type: kedro_datasets.pandas.CSVDataset
-  filepath: data/outputs/${itertime_params:experiment_name}/metrics/holdout_metrics.csv
+  filepath: data/outputs/metrics/holdout/${itertime_params:experiment_name}/data.csv
 
 measure.backtest_metrics:
   type: kedro_datasets.pandas.CSVDataset
-  filepath: data/outputs/${itertime_params:experiment_name}/metrics/backtest_metrics.csv
+  filepath: data/outputs/metrics/backtest/${itertime_params:experiment_name}/data.csv
 
 measure.external_holdout_metrics:
   type: kedro_datasets.pandas.CSVDataset
-  filepath: data/outputs/${itertime_params:experiment_name}/metrics/external_holdout_metrics.csv
+  filepath: data/outputs/metrics/external_holdout/${itertime_params:experiment_name}/data.csv
 
+measure.holdout_metrics_grouped:
+  type: kedro_datasets.pandas.CSVDataset
+  filepath: data/outputs/metrics_grouped/holdout/${itertime_params:experiment_name}/data.csv
+
+measure.backtest_metrics_grouped:
+  type: kedro_datasets.pandas.CSVDataset
+  filepath: data/outputs/metrics_grouped/backtest/${itertime_params:experiment_name}/data.csv
+
+measure.external_holdout_metrics_grouped:
+  type: kedro_datasets.pandas.CSVDataset
+  filepath: data/outputs/metrics_grouped/external_holdout/${itertime_params:experiment_name}/data.csv
+
+measure.external_holdout_metrics_full:
+  type: kedro_datasets.pandas.CSVDataset
+  filepath: data/outputs/metrics/external_holdout/full/data.csv
+
+measure.external_holdout_metrics_simple_grouped:
+  type: kedro_datasets.pandas.CSVDataset
+  filepath: data/outputs/metrics/external_holdout/simple_grouped/data.csv
+
+
+measure.external_holdout_metrics_combined:
+  type: partitions.PartitionedDataset
+  path: data/outputs/metrics/external_holdout/
+  dataset:
+    type: kedro_datasets.pandas.CSVDataset
+
+measure.backtest_metrics_combined:
+  type: partitions.PartitionedDataset
+  path: data/outputs/metrics/backtest/
+  dataset:
+    type: kedro_datasets.pandas.CSVDataset
+
+measure.holdout_metrics_combined:
+  type: partitions.PartitionedDataset
+  path: data/outputs/metrics/holdout/
+  dataset:
+    type: kedro_datasets.pandas.CSVDataset
 
 "{node}_checksum": 
   type: kedro_datasets.text.TextDataset
