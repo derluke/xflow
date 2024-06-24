@@ -67,7 +67,7 @@ class XFlowApp(AbstractKedroBootApp):  # type: ignore
         # leveraging config_loader to manage app's configs
         experiments = kedro_boot_session.run(namespace="config")
 
-        # run_experiments(experiments, "experiment")
+        run_experiments(experiments, "experiment")
         measure_results = run_experiments(experiments, "measure")
 
         # save results

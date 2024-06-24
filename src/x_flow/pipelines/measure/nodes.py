@@ -4,7 +4,7 @@ generated using Kedro 0.19.3.
 """
 
 import logging
-from typing import Any, Callable, List, Optional, TypeAlias
+from typing import Any, Callable, Dict, List, Optional, TypeAlias
 
 from joblib import Parallel, delayed
 import pandas as pd
@@ -113,108 +113,18 @@ def _get_predictions_and_target(model_df):
 
 
 def calculate_metrics(
-    experiment_config: dict[str, Any],
-    predictions: dict[str, ValidationPredictionData],
-    metric_config: dict[str, Any],
+    experiment_config: Dict[str, Any],
+    prediction_data: Dict[str, ValidationPredictionData],
+    metric_config: Dict[str, Any],
     metrics: List[str],
     best_models: Optional[pd.DataFrame] = None,
 ) -> pd.DataFrame:
     experiment_name = experiment_config["experiment_name"]
-    metadata_df = pd.DataFrame([k.replace(".csv", "").split("/")[:-1] for k in predictions])
-    metadata_df.columns = [  # type: ignore[assignment]
-        "partition",
-        "project_id",
-        "model_id",
-        "data_subset_name",
-    ]
-    metadata_df["load_function"] = predictions.values()
-    group_by_partition = True
-    if best_models is not None:
-        best_models = best_models[best_models["experiment"] == experiment_name]
-        if best_models is None or best_models.shape[0] == 0:
-            log.warning(f"No best models found for experiment {experiment_name}")
-            group_by_partition = True
-        else:
-            metadata_df = (
-                metadata_df.set_index(["project_id", "model_id"])
-                .join(
-                    best_models.set_index(["project_id", "model_id"]),
-                    on=["project_id", "model_id"],
-                    how="inner",
-                )
-                .reset_index()
-            )
-            group_by_partition = False
+    metadata_df = _prepare_metadata(prediction_data, experiment_name, best_models)
+    group_by_partition = best_models is None or best_models.empty
 
-    def process_group(
-        data_subset: dr.enums.DATA_SUBSET,
-        df: pd.DataFrame,
-        experiment_name: str,
-        metrics: list[str],
-        experiment_config: dict[str, Any],
-        metric_config: dict[str, Any],
-        group_by_partition: bool = True,
-    ) -> list[dict[str, Any]]:
-        # This will store all the metadata for the current group
-        group_metrics_list = []
-
-        # Define groupby columns based on the group_by_partition flag
-        groupby_columns = (
-            ["partition", "project_id", "model_id"] if group_by_partition else ["rank"]
-        )
-
-        for group_key, model_df in df.groupby(groupby_columns):
-            # Unpack group_key based on groupby_columns
-            if group_by_partition:
-                partition, project_id, model_id = group_key
-                rank = None
-            else:
-                (rank,) = group_key
-                partition = None
-                if model_df["project_id"].nunique() > 1:
-                    model_id = None
-                else:
-                    model_id = model_df.iloc[0]["model_id"]
-                if model_df["project_id"].nunique() > 1:
-                    project_id = None
-                else:
-                    project_id = model_df.iloc[0]["project_id"]
-
-            all_predictions, target_column = _get_predictions_and_target(model_df)
-
-            all_predictions["project_id"], all_predictions["model_id"] = project_id, model_id
-            metadata = {
-                "experiment_name": experiment_name,
-                "partition": partition,
-                "project_id": project_id,
-                "data_subset": data_subset,
-                "model_id": model_id,
-                "rank": rank,
-            }
-
-            if metadata["project_id"] is None:
-                metadata["project_id"] = ",".join([str(i) for i in model_df["project_id"].unique()])
-            if metadata["model_id"] is None:
-                metadata["model_id"] = ",".join([str(i) for i in model_df["model_id"].unique()])
-
-            for metric in metrics:
-                metric_instance = MetricFactory.get_metric(metric)
-                metric_value = metric_instance.compute(
-                    actuals=all_predictions[target_column],
-                    predictions=all_predictions["prediction"],
-                    experiment_config=experiment_config,
-                    metric_config=metric_config,
-                    extra_data=all_predictions,
-                    metadata=metadata,
-                )
-                metadata.update(metric_value)
-            group_metrics_list.append(metadata)
-            # log.info(f"metrics: {metadata}")
-
-        return group_metrics_list
-
-    tasks = (
-        delayed(process_group)(
+    tasks = [
+        delayed(_process_group)(
             data_subset,
             df,
             experiment_name,
@@ -224,59 +134,136 @@ def calculate_metrics(
             group_by_partition,
         )
         for data_subset, df in metadata_df.groupby("data_subset_name")
-    )
+    ]
 
     results = Parallel(n_jobs=10)(tasks)
+    metrics_list = [item for sublist in results for item in sublist]
+    return pd.DataFrame(metrics_list)
 
-    metrics_list = [item for sublist in results for item in sublist]  # type: ignore
-    metrics_by_partition = pd.DataFrame(metrics_list)
 
-    return metrics_by_partition
+def _prepare_metadata(
+    prediction_data: Dict[str, ValidationPredictionData],
+    experiment_name: str,
+    best_models: Optional[pd.DataFrame],
+) -> pd.DataFrame:
+    metadata_df = pd.DataFrame([k.replace(".csv", "").split("/")[:-1] for k in prediction_data])
+    metadata_df.columns = ["partition", "project_id", "model_id", "data_subset_name"]  # type: ignore
+    metadata_df["load_function"] = prediction_data.values()
+
+    if best_models is not None and not best_models.empty:
+        best_models = best_models[best_models["experiment_name"] == experiment_name]
+        metadata_df = metadata_df.merge(best_models, on=["project_id", "model_id"], how="inner")
+
+    return metadata_df
+
+
+def _process_group(
+    data_subset: dr.enums.DATA_SUBSET,
+    df: pd.DataFrame,
+    experiment_name: str,
+    metrics: List[str],
+    experiment_config: Dict[str, Any],
+    metric_config: Dict[str, Any],
+    group_by_partition: bool = True,
+) -> List[Dict[str, Any]]:
+    groupby_columns = ["partition", "project_id", "model_id"] if group_by_partition else ["rank"]
+
+    return [
+        _calculate_group_metrics(
+            group_key,
+            model_df,
+            experiment_name,
+            data_subset,
+            metrics,
+            experiment_config,
+            metric_config,
+            group_by_partition,
+        )
+        for group_key, model_df in df.groupby(groupby_columns)
+    ]
+
+
+def _calculate_group_metrics(
+    group_key: Any,
+    model_df: pd.DataFrame,
+    experiment_name: str,
+    data_subset: dr.enums.DATA_SUBSET,
+    metrics: List[str],
+    experiment_config: Dict[str, Any],
+    metric_config: Dict[str, Any],
+    group_by_partition: bool,
+) -> Dict[str, Any]:
+    metadata = _get_group_metadata(
+        group_key, model_df, experiment_name, data_subset, group_by_partition
+    )
+    all_predictions, target_column = _get_predictions_and_target(model_df)
+
+    if metadata["model_id"] is not None and "," not in metadata["model_id"]:
+        model_id = metadata["model_id"]
+        all_predictions["model_id"] = model_id
+
+    if metadata["project_id"] is not None and "," not in metadata["project_id"]:
+        project_id = metadata["project_id"]
+        all_predictions["project_id"] = project_id
+
+    for metric in metrics:
+        metric_instance = MetricFactory.get_metric(metric)
+        metric_value = metric_instance.compute(
+            actuals=all_predictions[target_column],
+            predictions=all_predictions["prediction"],
+            experiment_config=experiment_config,
+            metric_config=metric_config,
+            extra_data=all_predictions,
+            metadata=metadata,
+        )
+        metadata.update(metric_value)
+
+    return metadata
+
+
+def _get_group_metadata(
+    group_key: Any,
+    model_df: pd.DataFrame,
+    experiment_name: str,
+    data_subset: dr.enums.DATA_SUBSET,
+    group_by_partition: bool,
+) -> Dict[str, Any]:
+    if group_by_partition:
+        partition, project_id, model_id = group_key
+        rank = None
+    else:
+        rank = group_key[0]
+        partition = None
+        project_id = (
+            model_df["project_id"].iloc[0] if model_df["project_id"].nunique() == 1 else None
+        )
+        model_id = model_df["model_id"].iloc[0] if model_df["model_id"].nunique() == 1 else None
+
+    metadata = {
+        "experiment_name": experiment_name,
+        "partition": partition,
+        "project_id": project_id or ",".join(map(str, model_df["project_id"].unique())),
+        "data_subset": data_subset,
+        "model_id": model_id or ",".join(map(str, model_df["model_id"].unique())),
+        "rank": rank,
+    }
+
+    return metadata
 
 
 def get_best_models(
     metrics_by_partition: pd.DataFrame,
-    experiment_config: dict[str, Any],
+    experiment_config: Dict[str, Any],
 ) -> pd.DataFrame:
-    best_models: list[dict[str, str]] = []
     main_metric = experiment_config["main_metric"]
     group_by_partition = len(metrics_by_partition["partition"].unique()) > 1
-    # Determine grouping columns
+
     if group_by_partition:
-        # Group by experiment, partition, and project_id
         grouped = metrics_by_partition.groupby(["experiment_name", "partition", "project_id"])
-
-        for (experiment, partition, project_id), group in grouped:
-            # Find the best model for this group
-            best_model = group.loc[group[main_metric].idxmax()]
-
-            best_models.append(
-                {
-                    "experiment": experiment,
-                    "rank": "1",
-                    # "partition": partition,
-                    "project_id": project_id,
-                    "model_id": str(best_model["model_id"]),
-                    main_metric: str(best_model[main_metric]),
-                }
-            )
+        best_models = grouped.apply(lambda x: x.loc[x[main_metric].idxmax()]).reset_index(drop=True)  # type: ignore
+        best_models["rank"] = "1"
     else:
-        # Group only by experiment
-        grouped = metrics_by_partition.groupby("experiment_name")  # type: ignore
+        best_models = metrics_by_partition.sort_values(by=main_metric, ascending=False)
+        best_models["rank"] = range(1, len(best_models) + 1)
 
-        for experiment, group in grouped:
-            # Sort all models by the main metric in descending order
-            sorted_models = group.sort_values(by=main_metric, ascending=False)
-            for i, (_, row) in enumerate(sorted_models.iterrows()):
-                best_models.append(
-                    {
-                        "experiment": experiment,
-                        "rank": f"{i + 1}",
-                        # "partition": "all",
-                        "project_id": str(row["project_id"]),
-                        "model_id": str(row["model_id"]),
-                        main_metric: str(row[main_metric]),
-                    }
-                )
-
-    return pd.DataFrame.from_records(best_models)
+    return best_models[["experiment_name", "rank", "project_id", "model_id", main_metric]]
