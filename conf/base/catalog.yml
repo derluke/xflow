@@ -104,21 +104,21 @@ measure.external_holdout_metrics_simple_grouped:
   filepath: data/outputs/metrics/external_holdout/simple_grouped/data.csv
 
 
-measure.external_holdout_metrics_combined:
+collect.external_holdout_metrics_combined:
   type: partitions.PartitionedDataset
-  path: data/outputs/metrics/external_holdout/
+  path: data/outputs/metrics_grouped/external_holdout/
   dataset:
     type: kedro_datasets.pandas.CSVDataset
 
-measure.backtest_metrics_combined:
+collect.backtest_metrics_combined:
   type: partitions.PartitionedDataset
-  path: data/outputs/metrics/backtest/
+  path: data/outputs/metrics_grouped/backtest/
   dataset:
     type: kedro_datasets.pandas.CSVDataset
 
-measure.holdout_metrics_combined:
+collect.holdout_metrics_combined:
   type: partitions.PartitionedDataset
-  path: data/outputs/metrics/holdout/
+  path: data/outputs/metrics_grouped/holdout/
   dataset:
     type: kedro_datasets.pandas.CSVDataset
 

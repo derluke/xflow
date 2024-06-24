@@ -263,7 +263,7 @@ def get_best_models(
         best_models = grouped.apply(lambda x: x.loc[x[main_metric].idxmax()]).reset_index(drop=True)  # type: ignore
         best_models["rank"] = "1"
     else:
-        best_models = metrics_by_partition.sort_values(by=main_metric, ascending=False)
+        best_models = metrics_by_partition.sort_values(by=main_metric, ascending=False)[:1]
         best_models["rank"] = range(1, len(best_models) + 1)
 
     return best_models[["experiment_name", "rank", "project_id", "model_id", main_metric]]
