@@ -60,7 +60,7 @@ def create_leaderboard(
         .join(pd.concat(holdout_dfs).set_index(join_cols), on=join_cols, rsuffix="holdout_")
         .join(pd.concat(backtest_dfs).set_index(join_cols), on=join_cols, rsuffix="backtests_")
     )
-    return result.dropna(axis=1, how="all")
+    return result.reset_index().dropna(axis=1, how="all")
 
 
 def collect_deployments(deployments):

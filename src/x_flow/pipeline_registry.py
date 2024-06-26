@@ -12,6 +12,7 @@ from x_flow.pipelines.experiment.pipeline import (
 from x_flow.pipelines.measure.pipeline import create_pipeline as create_measure_pipeline
 from x_flow.pipelines.deploy.pipeline import create_pipeline as create_deploy_pipeline
 from x_flow.pipelines.collect.pipeline import create_pipeline as create_collect_pipeline
+from x_flow.pipelines.insights.pipeline import create_pipeline as create_insights_pipeline
 
 
 def register_pipelines() -> Dict[str, Pipeline]:
@@ -93,15 +94,19 @@ def register_pipelines() -> Dict[str, Pipeline]:
         # parameters={"deployments_combined": "collect.deployments_combined"},
     )
 
+    insights_pipeline = create_insights_pipeline()
+
     pipelines = {
         "__default__": config_pipeline
         + x_flow_experiments_pipeline
         + x_flow_measure_pipeline
         + deploy_pipeline
-        + collect_pipeline,
+        + collect_pipeline
+        + insights_pipeline,
         # + collect_pipeline,
         "config": config_pipeline,
         "collect": collect_pipeline,
+        "insights": insights_pipeline,
     }
 
     return pipelines
