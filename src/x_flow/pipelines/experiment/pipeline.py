@@ -43,15 +43,23 @@ def create_pipeline(**kwargs) -> Pipeline:
             ),
             node(
                 name="load_raw_data",
-                func=lambda df, target_column, partition_column: TrainingData(
+                func=lambda df,
+                target_column,
+                partition_column,
+                date_column,
+                date_format: TrainingData(
                     df=df,
                     target_column=target_column,
                     partition_column=partition_column,
+                    date_column=date_column,
+                    date_format=date_format,
                 ),
                 inputs={
                     "df": "raw_data_train",
                     "target_column": "params:experiment_config.analyze_and_model.target",
                     "partition_column": "params:experiment_config.partition_column",
+                    "date_column": "params:experiment_config.datetime_partitioning.datetime_partition_column",
+                    "date_format": "params:experiment_config.date_format",
                 },
                 outputs="data_train",
             ),
@@ -158,15 +166,23 @@ def create_pipeline(**kwargs) -> Pipeline:
             ),
             node(
                 name="load_raw_data_test",
-                func=lambda df, target_column, partition_column: ValidationData(
+                func=lambda df,
+                target_column,
+                partition_column,
+                date_column,
+                date_format: ValidationData(
                     df=df,
                     target_column=target_column,
                     partition_column=partition_column,
+                    date_column=date_column,
+                    date_format=date_format,
                 ),
                 inputs={
                     "df": "raw_data_test",
                     "target_column": "params:experiment_config.analyze_and_model.target",
                     "partition_column": "params:experiment_config.partition_column",
+                    "date_column": "params:experiment_config.datetime_partitioning.datetime_partition_column",
+                    "date_format": "params:experiment_config.date_format",
                 },
                 outputs="data_test",
             ),

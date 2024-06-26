@@ -8,7 +8,7 @@ class BinarizeData(DataPreprocessor):
         self,
         binarize_threshold: float,
         binarize_operator: str,
-        binarize_drop_regression_target: bool = True,
+        binarize_drop_regression_target: bool = False,
         binarize_new_target_name: str = "target_cat",
     ) -> None:
         self._threshold = binarize_threshold

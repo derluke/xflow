@@ -70,8 +70,8 @@ Metric: TypeAlias = Callable[
 def _load_and_index(row: pd.Series) -> pd.DataFrame:
     # Load the data from the function stored in the row
     try:
-        load_function: Callable[[], ValidationPredictionData] = row["load_function"]
-        validation_predictions = load_function()
+        load_function: ValidationPredictionData = row["load_function"]
+        validation_predictions = load_function
         rendered_df = validation_predictions.rendered_df
         loaded_df = rendered_df
     except Exception as e:
@@ -96,7 +96,7 @@ def _load_and_index(row: pd.Series) -> pd.DataFrame:
 
 def _get_predictions_and_target(model_df):
     load_functions = model_df["load_function"].to_list()
-    validation_predictions = [load_function() for load_function in load_functions]
+    validation_predictions = [load_function for load_function in load_functions]
     all_predictions_list = []
     for validation_prediction in validation_predictions:
         rendered_df = validation_prediction.rendered_df
@@ -257,13 +257,21 @@ def get_best_models(
 ) -> pd.DataFrame:
     main_metric = experiment_config["main_metric"]
     group_by_partition = len(metrics_by_partition["partition"].unique()) > 1
-
-    if group_by_partition:
-        grouped = metrics_by_partition.groupby(["experiment_name", "partition", "project_id"])
-        best_models = grouped.apply(lambda x: x.loc[x[main_metric].idxmax()]).reset_index(drop=True)  # type: ignore
-        best_models["rank"] = "1"
-    else:
-        best_models = metrics_by_partition.sort_values(by=main_metric, ascending=False)[:1]
-        best_models["rank"] = range(1, len(best_models) + 1)
-
-    return best_models[["experiment_name", "rank", "project_id", "model_id", main_metric]]
+    try:
+        if group_by_partition:
+            grouped = metrics_by_partition.groupby(["experiment_name", "partition", "project_id"])
+            best_models = grouped.apply(lambda x: x.loc[x[main_metric].idxmax()]).reset_index(
+                drop=True
+            )  # type: ignore
+            best_models["rank"] = "1"
+        else:
+            best_models = metrics_by_partition.sort_values(by=main_metric, ascending=False)[:1]
+            best_models["rank"] = range(1, len(best_models) + 1)
+    except:
+        log.error(
+            f"Error in getting the best models for experiment {experiment_config['experiment_name']}"
+        )
+        raise
+    return best_models[
+        ["experiment_name", "rank", "project_id", "model_id", "partition", main_metric]
+    ]

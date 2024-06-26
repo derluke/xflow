@@ -26,43 +26,50 @@ autopilot_run:
   type: kedro_datasets.text.TextDataset
   filepath: include/x_flow/autopilot_run/autopilot_run.txt
 
+experiment.project_dict:
+  type: kedro_datasets.yaml.YAMLDataset
+  filepath: data/outputs/experiments/${itertime_params:experiment_name}/project_dicts/project_dict.yml
+  # dataset:
+  #   type: kedro_datasets.yaml.YAMLDataset
+  # filename_suffix: ".yml"
+
 experiment.backtests:
-  type: partitions.PartitionedDataset
+  type: partitions.IncrementalDataset
   path: data/outputs/experiments/${itertime_params:experiment_name}/backtests/
-  dataset: 
+  dataset:
     type: x_flow.utils.data.XFlowDataset
     load_args:
       load_class: "ValidationPredictionData"
   filename_suffix: ".csv"
 
 experiment.holdouts:
-  type: partitions.PartitionedDataset
+  type: partitions.IncrementalDataset
   path: data/outputs/experiments/${itertime_params:experiment_name}/holdout/
-  dataset: 
+  dataset:
     type: x_flow.utils.data.XFlowDataset
     load_args:
       load_class: "ValidationPredictionData"
   filename_suffix: ".csv"
 
 experiment.external_holdout:
-  type: partitions.PartitionedDataset
+  type: partitions.IncrementalDataset
   path: data/outputs/experiments/${itertime_params:experiment_name}/external_holdout/
-  dataset: 
+  dataset:
     type: x_flow.utils.data.XFlowDataset
     load_args:
       load_class: "ValidationPredictionData"
   filename_suffix: ".csv"
 
 experiment.backtests_grouped:
-  type: partitions.PartitionedDataset
+  type: partitions.IncrementalDataset
   path: data/outputs/simple_NC_BC/backtests/
-  dataset: 
+  dataset:
     type: x_flow.utils.data.XFlowDataset
     load_args:
       load_class: "ValidationPredictionData"
   filename_suffix: ".csv"
 # experiment.project_dict:
-#   type: partitions.PartitionedDataset
+#   type: partitions.IncrementalDataset
 #   path: data/outputs/${itertime_params:experiment_name}/project_dict/
 #   dataset: pickle.PickleDataset
 #   filename_suffix: ".pkl"
@@ -95,33 +102,30 @@ measure.external_holdout_metrics_grouped:
   type: kedro_datasets.pandas.CSVDataset
   filepath: data/outputs/metrics_grouped/external_holdout/${itertime_params:experiment_name}/data.csv
 
-measure.external_holdout_metrics_full:
+measure.best_models:
   type: kedro_datasets.pandas.CSVDataset
-  filepath: data/outputs/metrics/external_holdout/full/data.csv
+  filepath: data/outputs/experiments/${itertime_params:experiment_name}/models/best_model.csv
 
-measure.external_holdout_metrics_simple_grouped:
-  type: kedro_datasets.pandas.CSVDataset
-  filepath: data/outputs/metrics/external_holdout/simple_grouped/data.csv
-
+collect.deployments_combined:
+  type: MemoryDataset
 
 collect.external_holdout_metrics_combined:
-  type: partitions.PartitionedDataset
-  path: data/outputs/metrics_grouped/external_holdout/
-  dataset:
-    type: kedro_datasets.pandas.CSVDataset
+  type: MemoryDataset
 
 collect.backtest_metrics_combined:
-  type: partitions.PartitionedDataset
-  path: data/outputs/metrics_grouped/backtest/
-  dataset:
-    type: kedro_datasets.pandas.CSVDataset
+  type: MemoryDataset
 
 collect.holdout_metrics_combined:
-  type: partitions.PartitionedDataset
-  path: data/outputs/metrics_grouped/holdout/
-  dataset:
-    type: kedro_datasets.pandas.CSVDataset
+  type: MemoryDataset
 
-"{node}_checksum": 
+collect.collected_deployments:
+  type: kedro_datasets.pandas.CSVDataset
+  filepath: data/outputs/collected_deployments.csv
+
+collect.leaderboard:
+  type: kedro_datasets.pandas.CSVDataset
+  filepath: data/outputs/leaderboard.csv
+
+"{node}_checksum":
   type: kedro_datasets.text.TextDataset
   filepath: data/outputs/checksums/${itertime_params:experiment_name}/{node}.txt

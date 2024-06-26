@@ -17,7 +17,7 @@ class Data:
     date_partition_column: Optional[Union[str, list[datetime.datetime]]] = None
     partition_column: Optional[str] = None
     date_column: Optional[str] = None
-    date_format: str = "%Y-%m-%d"
+    date_format: str = None
 
     # @staticmethod
     # def from_file(filepath: Path, **kwargs) -> "Data":
@@ -46,7 +46,7 @@ class Data:
             df = df.iloc[self.row_index]
         if self.date_column and df[self.date_column].dtype != "datetime64[ns]":
             df[self.date_column] = pd.to_datetime(df[self.date_column], format=self.date_format)
-        return df
+        return df.reset_index(drop=True)
 
     def get_date_partitions(self) -> dict[str, pd.DataFrame]:
         df = self.rendered_df
@@ -58,14 +58,15 @@ class Data:
             return {"__all__": df}
         elif isinstance(self.date_partition_column, str):
             return {
-                str(group): group_df for group, group_df in df.groupby(self.date_partition_column)
+                str(group): group_df.reset_index(drop=True)
+                for group, group_df in df.groupby(self.date_partition_column)
             }
         elif isinstance(self.date_partition_column, list):
             partition_dates = self.date_partition_column
             return {
                 start_date: df[
                     (df[self.date_column] >= start_date) & (df[self.date_column] <= end_date)
-                ]
+                ].reset_index(drop=True)
                 for start_date, end_date in zip(
                     [start_date] + partition_dates, partition_dates + [end_date]
                 )
@@ -75,7 +76,10 @@ class Data:
         df = self.rendered_df
         if self.partition_column is not None:
             return OrderedDict(
-                {str(group): group_df for group, group_df in df.groupby(self.partition_column)}
+                {
+                    str(group): group_df.reset_index(drop=True)
+                    for group, group_df in df.groupby(self.partition_column)
+                }
             )
         else:
             return OrderedDict({"__all_data__": df})
