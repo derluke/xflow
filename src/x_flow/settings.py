@@ -6,6 +6,7 @@ https://docs.kedro.org/en/stable/kedro_project_setup/settings.html.
 # Instantiated project hooks.
 # For example, after creating a hooks.py and defining a ProjectHooks class there, do
 # from x_flow.hooks import ProjectHooks
+import pandas as pd
 from datarobotx.idp.common.checkpoint_hooks import CheckpointHooks
 from datarobotx.idp.common.credentials_hooks import CredentialsHooks
 
@@ -60,16 +61,16 @@ CONFIG_LOADER_CLASS = OmegaConfigLoader
 CONFIG_LOADER_ARGS = {
     "base_env": "base",
     "default_run_env": "local",
-    "config_patterns": {
-        #           "spark" : ["spark*/"],
-        "parameters": ["parameters*", "parameters*/**", "**/parameters*"],
-    },
     "custom_resolvers": {
         "merge": merge_dicts,
     },
 }
 
+experiments = pd.read_csv("include/x_flow/config/experiments.csv")
 
+DYNAMIC_PIPELINES_MAPPING = {
+    "experiments": [row["experiment_name"] for _, row in experiments.iterrows()]
+}
 # Class that manages Kedro's library components.
 # from kedro.framework.context import KedroContext
 # CONTEXT_CLASS = KedroContext
