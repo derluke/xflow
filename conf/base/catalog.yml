@@ -26,57 +26,39 @@ autopilot_run:
   type: kedro_datasets.text.TextDataset
   filepath: include/x_flow/autopilot_run/autopilot_run.txt
 
-experiment.project_dict:
+"{variant}.project_dict":
   type: kedro_datasets.yaml.YAMLDataset
-  filepath: data/outputs/experiments/${itertime_params:experiment_name}/project_dicts/project_dict.yml
+  filepath: "data/outputs/experiments/{variant}/project_dicts/project_dict.yml"
   # dataset:
   #   type: kedro_datasets.yaml.YAMLDataset
   # filename_suffix: ".yml"
 
-experiment.backtests:
+"{variant}.backtests":
   type: partitions.IncrementalDataset
-  path: data/outputs/experiments/${itertime_params:experiment_name}/backtests/
+  path: "data/outputs/experiments/{variant}/backtests/"
   dataset:
     type: x_flow.utils.data.XFlowDataset
     load_args:
       load_class: "ValidationPredictionData"
   filename_suffix: ".csv"
 
-experiment.holdouts:
+"{variant}.holdouts":
   type: partitions.IncrementalDataset
-  path: data/outputs/experiments/${itertime_params:experiment_name}/holdout/
+  path: "data/outputs/experiments/{variant}/holdout/"
   dataset:
     type: x_flow.utils.data.XFlowDataset
     load_args:
       load_class: "ValidationPredictionData"
   filename_suffix: ".csv"
 
-experiment.external_holdout:
+"{variant}.external_holdout":
   type: partitions.IncrementalDataset
-  path: data/outputs/experiments/${itertime_params:experiment_name}/external_holdout/
+  path: data/outputs/experiments/{variant}/external_holdout/
   dataset:
     type: x_flow.utils.data.XFlowDataset
     load_args:
       load_class: "ValidationPredictionData"
   filename_suffix: ".csv"
-
-experiment.backtests_grouped:
-  type: partitions.IncrementalDataset
-  path: data/outputs/simple_NC_BC/backtests/
-  dataset:
-    type: x_flow.utils.data.XFlowDataset
-    load_args:
-      load_class: "ValidationPredictionData"
-  filename_suffix: ".csv"
-# experiment.project_dict:
-#   type: partitions.IncrementalDataset
-#   path: data/outputs/${itertime_params:experiment_name}/project_dict/
-#   dataset: pickle.PickleDataset
-#   filename_suffix: ".pkl"
-
-# experiment.target_binarized:
-#   type: kedro_datasets.text.TextDataset
-#   filepath: data/outputs/${itertime_params:experiment_name}/target_binarized.txt
 
 measure.holdout_metrics:
   type: kedro_datasets.pandas.CSVDataset
@@ -128,4 +110,4 @@ collect.leaderboard:
 
 "{node}_checksum":
   type: kedro_datasets.text.TextDataset
-  filepath: data/outputs/checksums/${itertime_params:experiment_name}/{node}.txt
+  filepath: data/outputs/checksums/{node}.txt

@@ -425,13 +425,16 @@ def get_backtest_predictions(
         training_predictions = get_training_predictions(model, data_subset)  # type: ignore
         training_data = df.get_partitions()[group].copy()
         merged_predictions = merge_predictions(
-            training_predictions, training_data, model=model, date_column=df.date_column
+            training_predictions,  # type: ignore
+            training_data,
+            model=model,
+            date_column=df.date_column,
         )  # type: ignore
 
         result_dict = {}
         for partition, group_df in merged_predictions.groupby("partition_id"):
             result = ValidationPredictionData(**asdict(df))
-            result.date_format = None
+            result.date_format = None  # type: ignore
             result.df = group_df
             result_dict[f"{group}/{model.project_id}/{model.id}/{partition}"] = result
 
@@ -484,7 +487,7 @@ def get_external_predictions(
         )
 
         result = ValidationPredictionData(**asdict(external_holdout))
-        result.date_format = None
+        result.date_format = None  # type: ignore
         result.df = merged_predictions
         return {f"{group}/{model.project_id}/{model.id}/external_holdout": result}
 

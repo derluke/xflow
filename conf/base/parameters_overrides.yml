@@ -1,0 +1,44 @@
+experiment:
+  simple:
+    _overrides:
+      experiment_name: simple
+      analyze_and_model:
+        target: Mid
+        mode: quick
+    project: ${merge:${...project},${._overrides}}
+  full:
+    _overrides:
+      experiment_name: full
+      analyze_and_model:
+        target: Mid
+        mode: auto
+    project: ${merge:${...project},${._overrides}}
+  simple_grouped:
+    _overrides:
+      experiment_name: simple_grouped
+      analyze_and_model:
+        target: Mid
+        mode: quick
+      group_data:
+        partition_column: tier
+    project: ${merge:${...project},${._overrides}}
+  simple_NC_BC:
+    _overrides:
+      experiment_name: simple_NC_BC
+      analyze_and_model:
+        target: Mid
+        mode: quick
+      binarize_data:
+        binarize_operator: '>'
+        binarize_threshold: 113.0
+    project: ${merge:${...project},${._overrides}}
+  full_NC_BC:
+    _overrides:
+      experiment_name: full_NC_BC
+      analyze_and_model:
+        target: Mid
+        mode: auto
+      binarize_data:
+        binarize_operator: '>'
+        binarize_threshold: 113.0
+    project: ${merge:${...project},${._overrides}}

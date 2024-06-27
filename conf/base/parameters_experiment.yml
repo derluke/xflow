@@ -3,42 +3,22 @@
 #
 # Documentation for this file format can be found in "Parameters"
 # Link: https://docs.kedro.org/en/0.19.3/configuration/parameters.html
-use_case_name: x-flow Demo
 
-experiment:
+
+project:
+  use_case_name: x-flow Demo
   experiment_name:
-  experiment_config:
-    analyze_and_model:
-      target:
-      max_wait: 10000
-      worker_count: -1
-    datetime_partitioning:
-      use_time_series: False
-      datetime_partition_column: date
-      number_of_backtests: 3
-    binarize_data_config:
-    fire_config:
-    partition_column:
-    main_metric: "generalized_f1"
-    date_format: "%d/%m/%Y"
+  analyze_and_model:
+    target:
+    max_wait: 10000
+    worker_count: -1
+  datetime_partitioning:
+    use_time_series: False
+    datetime_partition_column: date
+    number_of_backtests: 3
+  binarize_data_config:
+  fire_config:
+  partition_column:
+  main_metric: "generalized_f1"
+  date_format: "%d/%m/%Y"
 
-measure:
-  experiment_config:
-  metric_config:
-    binarize_data_config:
-      operator: ">"
-      threshold: 113
-    weights: weights
-  metrics:
-    - generalized_f1
-    - mean_squared_error
-    - datarobot_metrics
-
-dr_experiment:
-  experiment_name: single_run
-  experiment_config:
-    analyze_and_model:
-      target: Mid
-    binarize_data_config:
-      operator: ">"
-      threshold: 100

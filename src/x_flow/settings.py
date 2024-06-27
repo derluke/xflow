@@ -6,7 +6,16 @@ https://docs.kedro.org/en/stable/kedro_project_setup/settings.html.
 # Instantiated project hooks.
 # For example, after creating a hooks.py and defining a ProjectHooks class there, do
 # from x_flow.hooks import ProjectHooks
+from copy import deepcopy
+from typing import Any
+
+from kedro.config import OmegaConfigLoader  # noqa: E402
+import omegaconf
 import pandas as pd
+import yaml
+
+from x_flow.pipelines.config.nodes import decode_config, load_data
+
 from datarobotx.idp.common.checkpoint_hooks import CheckpointHooks
 from datarobotx.idp.common.credentials_hooks import CredentialsHooks
 
@@ -30,9 +39,6 @@ APP_CLASS = "controller.app.XFlowApp"
 # CONF_SOURCE = "conf"
 
 # Class that manages how configuration is loaded.
-from copy import deepcopy
-
-from kedro.config import OmegaConfigLoader  # noqa: E402
 
 
 def merge_dicts(dict1, dict2):
@@ -43,17 +49,42 @@ def merge_dicts(dict1, dict2):
         dict1 (dict): The first dictionary to merge.
         dict2 (dict): The second dictionary to merge.
 
-    Returns
-    -------
+    Returns:
         dict: The merged dictionary.
     """
     result = deepcopy(dict1)
     for key, value in dict2.items():
-        if key in result and isinstance(result[key], dict) and isinstance(value, dict):
+        if (
+            isinstance(value, omegaconf.dictconfig.DictConfig)
+            and key in result
+            and isinstance(result[key], omegaconf.dictconfig.DictConfig)
+        ):
             result[key] = merge_dicts(result[key], value)
         else:
             result[key] = value
     return result
+
+
+experiments = pd.read_csv("include/x_flow/config/experiments.csv")
+global_params = yaml.safe_load(open("include/x_flow/config/param_mapping.yml"))
+
+
+experiments_dict = load_data(experiments)
+decoded_experiments = decode_config(experiments_dict, global_params, {})
+
+multi_pipelines = ["experiments", "measure"]
+overrides: dict[str, Any] = {"experiment": {}}  # {"experiment": {"project": "${..project}"}}
+for experiment in decoded_experiments:
+    experiment_name = experiment["experiment_name"]
+    print(experiment_name)
+    override_dict = {
+        "_overrides": experiment,
+        "project": "${merge:${...project},${._overrides}}",
+    }
+    overrides["experiment"][experiment_name] = override_dict
+
+with open("conf/base/parameters_overrides.yml", "w") as f:
+    yaml.dump(overrides, f, sort_keys=False)
 
 
 CONFIG_LOADER_CLASS = OmegaConfigLoader
@@ -66,10 +97,10 @@ CONFIG_LOADER_ARGS = {
     },
 }
 
-experiments = pd.read_csv("include/x_flow/config/experiments.csv")
 
 DYNAMIC_PIPELINES_MAPPING = {
-    "experiments": [row["experiment_name"] for _, row in experiments.iterrows()]
+    "experiment": list(overrides["experiment"].keys()),
+    "measure": list(overrides["experiment"].keys()),
 }
 # Class that manages Kedro's library components.
 # from kedro.framework.context import KedroContext

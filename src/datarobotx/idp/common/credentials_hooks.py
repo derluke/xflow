@@ -21,6 +21,10 @@ except ImportError as e:
 
 from datarobotx.idp.common.handle_io import get_feed_dict
 
+import logging
+
+log = logging.getLogger(__name__)
+
 
 class CredentialsHooks:
     """Include credentials in the catalog so they can be used by nodes."""

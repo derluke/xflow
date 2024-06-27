@@ -3,3 +3,14 @@
 #
 # Documentation for this file format can be found in "Parameters"
 # Link: https://docs.kedro.org/en/0.19.3/configuration/parameters.html
+
+measure:
+  metric_config:
+    binarize_data_config:
+      operator: ">"
+      threshold: 113
+    weights: weights
+  metrics:
+    - generalized_f1
+    - mean_squared_error
+    - datarobot_metrics
