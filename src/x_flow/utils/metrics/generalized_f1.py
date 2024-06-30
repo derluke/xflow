@@ -38,7 +38,7 @@ class GeneralizedF1(Metric):
             binary_model = False
 
         if not binary_model:
-            log.info(metric_config)
+            # log.info(metric_config)
             predictions = self.preprocess(
                 predictions,
                 experiment_config=experiment_config,

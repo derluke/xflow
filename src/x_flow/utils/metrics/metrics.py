@@ -70,6 +70,8 @@ class Metric(ABC):
                 raise ValueError("experiment_config is required")
 
             binarize_data = experiment_config.get("binarize_data", {})
+            if binarize_data is None:
+                binarize_data = {}
             binarize_operator = binarize_data.get("binarize_operator")
             binarize_threshold = binarize_data.get("binarize_threshold")
 

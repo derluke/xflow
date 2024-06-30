@@ -53,7 +53,7 @@ def create_pipeline(**kwargs) -> Pipeline:
             inputs={
                 "df": "raw_data_train",
                 "target_column": "params:experiment_config.analyze_and_model.target",
-                "partition_column": "params:experiment_config.partition_column",
+                "partition_column": "params:experiment_config.group_data.partition_column",
                 "date_column": "params:experiment_config.datetime_partitioning.datetime_partition_column",
                 "date_format": "params:experiment_config.date_format",
             },
@@ -136,7 +136,6 @@ def create_pipeline(**kwargs) -> Pipeline:
             },
             outputs="backtests_completed",
             name="calculate_backtests",
-            tags=["checkpoint"],
         ),
         node(
             func=lambda project_dict, df, backtests_completed: backtests_completed
@@ -146,8 +145,8 @@ def create_pipeline(**kwargs) -> Pipeline:
                 "df": "data_train_transformed",
                 "backtests_completed": "backtests_completed",
             },
-            outputs="backtests",
-            tags=["checkpoint"],
+            outputs="backtest",
+            # tags=["checkpoint"],
             name="get_backtest_predictions",
         ),
         node(
@@ -158,8 +157,8 @@ def create_pipeline(**kwargs) -> Pipeline:
                 "df": "data_train_transformed",
                 "backtests_completed": "backtests_completed",
             },
-            outputs="holdouts",
-            tags=["checkpoint"],
+            outputs="holdout",
+            # tags=["checkpoint"],
             name="get_holdout_predictions",
         ),
         node(
@@ -178,7 +177,7 @@ def create_pipeline(**kwargs) -> Pipeline:
             inputs={
                 "df": "raw_data_test",
                 "target_column": "params:experiment_config.analyze_and_model.target",
-                "partition_column": "params:experiment_config.partition_column",
+                "partition_column": "params:experiment_config.group_data.partition_column",
                 "date_column": "params:experiment_config.datetime_partitioning.datetime_partition_column",
                 "date_format": "params:experiment_config.date_format",
             },
@@ -197,7 +196,7 @@ def create_pipeline(**kwargs) -> Pipeline:
                 "external_holdout": "data_test_transformed",
             },
             outputs="external_holdout",
-            tags=["checkpoint"],
+            # tags=["checkpoint"],
             name="get_external_holdout_predictions",
         ),
     ]
@@ -215,8 +214,8 @@ def create_pipeline(**kwargs) -> Pipeline:
             },
             inputs={"raw_data_train", "raw_data_test"},
             outputs={
-                "backtests": f"{variant}.backtests",
-                "holdouts": f"{variant}.holdouts",
+                "backtest": f"{variant}.backtest",
+                "holdout": f"{variant}.holdout",
                 "external_holdout": f"{variant}.external_holdout",
                 "project_dict": f"{variant}.project_dict",
             },

@@ -91,18 +91,15 @@ class TrainingData(Data):
 
 
 @dataclass(kw_only=True)
-class ValidationData(TrainingData):
-    ...
+class ValidationData(TrainingData): ...
 
 
 @dataclass(kw_only=True)
-class ValidationPredictionData(ValidationData):
-    ...
+class ValidationPredictionData(ValidationData): ...
 
 
 @dataclass(kw_only=True)
-class PredictionData(Data):
-    ...
+class PredictionData(Data): ...
 
 
 class_map: dict[str, type] = {

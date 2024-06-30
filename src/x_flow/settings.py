@@ -15,8 +15,8 @@ import pandas as pd
 import yaml
 
 from x_flow.pipelines.config.nodes import decode_config, load_data
+from x_flow.utils.common.checkpoint_hooks import CheckpointHooks
 
-from datarobotx.idp.common.checkpoint_hooks import CheckpointHooks
 from datarobotx.idp.common.credentials_hooks import CredentialsHooks
 
 # Hooks are executed in a Last-In-First-Out (LIFO) order.

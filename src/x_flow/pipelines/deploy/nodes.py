@@ -9,7 +9,9 @@ generated using Kedro 0.19.3.
 # weekly run, take last 5 days of data
 
 from typing import Any
+
 import pandas as pd
+
 from datarobotx.idp.deployments import get_or_create_deployment_from_registered_model_version
 from datarobotx.idp.registered_model_versions import (
     get_or_create_registered_leaderboard_model_version,
@@ -20,7 +22,7 @@ def deploy_models(
     endpoint: str, token: str, best_models: pd.DataFrame, default_prediction_server_id: str
 ):
     best_models_dict = best_models.to_dict(orient="records")
-    deployments = {}
+    deployments: dict[str, Any] = {}
     for model in best_models_dict:
         # call deployment API here, save the id of each deployed model
         project_id = model["project_id"]

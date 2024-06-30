@@ -17,6 +17,7 @@ experiment_config:
     number_of_backtests: 3
   binarize_data:
   fire_config:
-  partition_column:
+  group_data:
+    partition_column:
   main_metric: "generalized_f1"
   date_format: "%d/%m/%Y"

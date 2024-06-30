@@ -13,23 +13,26 @@ from .nodes import calculate_metrics, get_best_models
 
 def create_pipeline(**kwargs) -> Pipeline:
     data_subsets = [
-        "backtests",
-        "holdouts",
+        "backtest",
+        "holdout",
         "external_holdout",
     ]
 
     nodes = []
     for grouped in [False, True]:
         for subset in data_subsets:
+            input_dict = {
+                "experiment_config": "params:experiment_config",
+                "metric_config": "params:measure_config.metric_config",
+                "metrics": "params:measure_config.metrics",
+                "prediction_data": f"{subset}",
+            }
+            if grouped:
+                input_dict["best_models"] = "best_models"
             nodes.append(
                 node(
                     func=calculate_metrics,
-                    inputs={
-                        "experiment_config": "params:experiment_config",
-                        "metric_config": "params:measure_config.metric_config",
-                        "metrics": "params:measure_config.metrics",
-                        "prediction_data": f"{subset}",
-                    },
+                    inputs=input_dict,
                     outputs=f"{subset}_metrics" + "_grouped" * grouped,
                     name=f"calculate_{subset}_metrics" + "_grouped" * grouped,
                 )
@@ -138,8 +141,8 @@ def create_pipeline(**kwargs) -> Pipeline:
                 "params:experiment_config": f"params:experiment.{variant}.experiment_config"
             },
             inputs={
-                "holdouts": f"{variant}.holdouts",
-                "backtests": f"{variant}.backtests",
+                "holdout": f"{variant}.holdout",
+                "backtest": f"{variant}.backtest",
                 "external_holdout": f"{variant}.external_holdout",
             },
             namespace=f"{namespace}.{variant}",

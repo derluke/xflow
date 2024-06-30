@@ -33,16 +33,16 @@ autopilot_run:
   #   type: kedro_datasets.yaml.YAMLDataset
   # filename_suffix: ".yml"
 
-"{variant}.backtests":
+"{variant}.backtest":
   type: partitions.IncrementalDataset
-  path: "data/outputs/experiments/{variant}/backtests/"
+  path: "data/outputs/experiments/{variant}/backtest/"
   dataset:
     type: x_flow.utils.data.XFlowDataset
     load_args:
       load_class: "ValidationPredictionData"
   filename_suffix: ".csv"
 
-"{variant}.holdouts":
+"{variant}.holdout":
   type: partitions.IncrementalDataset
   path: "data/outputs/experiments/{variant}/holdout/"
   dataset:
@@ -60,33 +60,37 @@ autopilot_run:
       load_class: "ValidationPredictionData"
   filename_suffix: ".csv"
 
-measure.holdout_metrics:
+"measure.{variant}.{data_subset}_metrics":
   type: kedro_datasets.pandas.CSVDataset
-  filepath: data/outputs/metrics/holdout/${itertime_params:experiment_name}/data.csv
+  filepath: data/outputs/metrics/{data_subset}/{variant}/data.csv
 
-measure.backtest_metrics:
-  type: kedro_datasets.pandas.CSVDataset
-  filepath: data/outputs/metrics/backtest/${itertime_params:experiment_name}/data.csv
+# "measure.{variant}.backtest_metric":
+#   type: kedro_datasets.pandas.CSVDataset
+#   filepath: data/outputs/metrics/backtest/{variant}/data.csv
 
-measure.external_holdout_metrics:
-  type: kedro_datasets.pandas.CSVDataset
-  filepath: data/outputs/metrics/external_holdout/${itertime_params:experiment_name}/data.csv
+# "measure.{variant}.external_holdout_metrics":
+#   type: kedro_datasets.pandas.CSVDataset
+#   filepath: data/outputs/metrics/external_holdout/{variant}/data.csv
 
-measure.holdout_metrics_grouped:
+"measure.{variant}.{data_subset}_metrics_grouped":
   type: kedro_datasets.pandas.CSVDataset
-  filepath: data/outputs/metrics_grouped/holdout/${itertime_params:experiment_name}/data.csv
+  filepath: data/outputs/metrics_grouped/{data_subset}/{variant}/data.csv
 
-measure.backtest_metrics_grouped:
-  type: kedro_datasets.pandas.CSVDataset
-  filepath: data/outputs/metrics_grouped/backtest/${itertime_params:experiment_name}/data.csv
+# "measure.{variant}.backtest_metrics_grouped":
+#   type: kedro_datasets.pandas.CSVDataset
+#   filepath: data/outputs/metrics_grouped/backtest/{variant}/data.csv
 
-measure.external_holdout_metrics_grouped:
-  type: kedro_datasets.pandas.CSVDataset
-  filepath: data/outputs/metrics_grouped/external_holdout/${itertime_params:experiment_name}/data.csv
+# "measure.{variant}.external_holdout_metrics_grouped":
+#   type: kedro_datasets.pandas.CSVDataset
+#   filepath: data/outputs/metrics_grouped/external_holdout/{variant}/data.csv
 
-measure.best_models:
+"measure.{variant}.best_models":
   type: kedro_datasets.pandas.CSVDataset
-  filepath: data/outputs/experiments/${itertime_params:experiment_name}/models/best_model.csv
+  filepath: data/outputs/experiments/{variant}/models/best_model.csv
+
+"deploy.{variant}.deployments":
+  type: kedro_datasets.yaml.YAMLDataset
+  filepath: data/outputs/experiments/{variant}/deployments/deployments.yml
 
 collect.deployments_combined:
   type: MemoryDataset

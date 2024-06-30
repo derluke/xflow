@@ -45,6 +45,6 @@ def create_pipeline(**kwargs) -> Pipeline:
         parameters={
             "params:credentials.datarobot.api_token": "params:credentials.datarobot.api_token",
             "params:credentials.datarobot.endpoint": "params:credentials.datarobot.endpoint",
-            "params:use_case_name": "params:use_case_name",
+            "params:use_case_name": "params:experiment_config.use_case_name",
         },
     )
