@@ -72,16 +72,18 @@ global_params = yaml.safe_load(open("include/x_flow/config/param_mapping.yml"))
 experiments_dict = load_data(experiments)
 decoded_experiments = decode_config(experiments_dict, global_params, {})
 
-multi_pipelines = ["experiments", "measure"]
-overrides: dict[str, Any] = {"experiment": {}}  # {"experiment": {"project": "${..project}"}}
-for experiment in decoded_experiments:
-    experiment_name = experiment["experiment_name"]
-    print(experiment_name)
-    override_dict = {
-        "_overrides": experiment,
-        "project": "${merge:${...project},${._overrides}}",
-    }
-    overrides["experiment"][experiment_name] = override_dict
+multi_pipelines = ["experiment", "measure"]
+overrides: dict[str, Any] = {}  # {"experiment": {"project": "${..project}"}}
+for multi_pipeline in multi_pipelines:
+    overrides[multi_pipeline] = {}
+    for experiment in decoded_experiments:
+        experiment_name = experiment["experiment_name"]
+        # print(experiment_name)
+        override_dict = {
+            "_overrides": experiment,
+            f"{multi_pipeline}_config": f"${{merge:${{...{multi_pipeline}_config}},${{._overrides}}}}",
+        }
+        overrides[multi_pipeline][experiment_name] = override_dict
 
 with open("conf/base/parameters_overrides.yml", "w") as f:
     yaml.dump(overrides, f, sort_keys=False)

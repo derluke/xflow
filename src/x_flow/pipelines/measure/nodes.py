@@ -136,7 +136,7 @@ def calculate_metrics(
         for data_subset, df in metadata_df.groupby("data_subset_name")
     ]
 
-    results = Parallel(n_jobs=10)(tasks)
+    results = Parallel(n_jobs=10, backend="threading")(tasks)
     metrics_list = [item for sublist in results for item in sublist]
     return pd.DataFrame(metrics_list)
 

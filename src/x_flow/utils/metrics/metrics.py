@@ -74,12 +74,12 @@ class Metric(ABC):
             binarize_threshold = binarize_data.get("binarize_threshold")
 
             if not binarize_operator or binarize_threshold is None:
-                if metric_config is None or "binarize_data_config" not in metric_config:
+                if metric_config is None or "binarize_data" not in metric_config:
                     raise ValueError(
-                        "metric_config is required with 'binarize_data_config' key when not specified in experiment_config."
+                        "metric_config is required with 'binarize_data' key when not specified in experiment_config."
                     )
 
-                binarize_data = metric_config["binarize_data_config"]
+                binarize_data = metric_config["binarize_data"]
                 binarize_operator = binarize_data.get("operator")
                 binarize_threshold = binarize_data.get("threshold")
 

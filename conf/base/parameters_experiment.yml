@@ -4,8 +4,7 @@
 # Documentation for this file format can be found in "Parameters"
 # Link: https://docs.kedro.org/en/0.19.3/configuration/parameters.html
 
-
-project:
+experiment_config:
   use_case_name: x-flow Demo
   experiment_name:
   analyze_and_model:
@@ -16,9 +15,8 @@ project:
     use_time_series: False
     datetime_partition_column: date
     number_of_backtests: 3
-  binarize_data_config:
+  binarize_data:
   fire_config:
   partition_column:
   main_metric: "generalized_f1"
   date_format: "%d/%m/%Y"
-

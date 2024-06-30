@@ -4,9 +4,9 @@
 # Documentation for this file format can be found in "Parameters"
 # Link: https://docs.kedro.org/en/0.19.3/configuration/parameters.html
 
-measure:
+measure_config:
   metric_config:
-    binarize_data_config:
+    binarize_data:
       operator: ">"
       threshold: 113
     weights: weights

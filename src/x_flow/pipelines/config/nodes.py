@@ -51,7 +51,7 @@ def decode_config(
     # log.info(
     #     f"Decoding config with mapping: {json.dumps(param_mapping, indent=4, sort_keys=True)}"
     # )
-    log.info(f"Global parameters: {json.dumps(global_parameters, indent=4, sort_keys=True)}")
+    # log.info(f"Global parameters: {json.dumps(global_parameters, indent=4, sort_keys=True)}")
 
     decoded_configs = []
     seen_experiment_names = set()
@@ -103,5 +103,5 @@ def decode_config(
         return new_dict
 
     merged_pruned_dicts = [prune_none_values(d) for d in merged_configs]
-    log.info(f"Decoded config: {json.dumps(merged_pruned_dicts, indent=4, sort_keys=True)}")
+    # log.info(f"Decoded config: {json.dumps(merged_pruned_dicts, indent=4, sort_keys=True)}")
     return merged_pruned_dicts
