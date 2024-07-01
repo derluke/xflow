@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any, Optional, Union
 
 from kedro.io import AbstractDataset
+from kedro_datasets._typing import TablePreview
 import pandas as pd
 from pandas.api.types import is_datetime64_any_dtype as is_datetime
 
@@ -117,16 +118,17 @@ class XFlowDataset(AbstractDataset[Data, Data]):
         self._filepath = filepath
         self.kwargs = kwargs
         load_args = kwargs.get("load_args", {})
-        load_class = load_args.get("load_class", "Data")
+        self._load_args = load_args
+        load_class = load_args.pop("load_class", "Data")
         if load_class not in class_map:
             raise ValueError(f"load_class must be one of {list(class_map.keys())}")
         self.load_class = load_class
 
-    def _load(self, **kwargs: Any) -> Data:
+    def _load(self) -> Data:
         # check if self._filepath is a directory:
         if Path(self._filepath).is_dir():
             self._filepath = Path(self._filepath) / "data.csv"  # type: ignore
-        df = pd.read_csv(Path(self._filepath))
+        df = pd.read_csv(Path(self._filepath), **self._load_args)
         with open(Path(self._filepath).parent / "metadata.json") as f:
             metadata = json.load(f)
         instance: Data = class_map[self.load_class](df=df, **metadata)
@@ -150,3 +152,9 @@ class XFlowDataset(AbstractDataset[Data, Data]):
             filepath=self._filepath,
             **self.kwargs,
         )
+
+    def preview(self, nrows=10) -> TablePreview:
+        dataset_copy = self._copy()
+        dataset_copy._load_args["nrows"] = nrows  # type: ignore[attr-defined]
+        data = dataset_copy.load().rendered_df
+        return data.to_dict(orient="split")
