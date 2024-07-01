@@ -7,6 +7,7 @@ from typing import Any, Optional, Union
 
 from kedro.io import AbstractDataset
 import pandas as pd
+from pandas.api.types import is_datetime64_any_dtype as is_datetime
 
 
 @dataclass(kw_only=True)
@@ -44,7 +45,7 @@ class Data:
             df = df[list(columns)]
         if self.row_index is not None:
             df = df.iloc[self.row_index]
-        if self.date_column and df[self.date_column].dtype != "datetime64[ns]":
+        if self.date_column and not is_datetime(df[self.date_column]):
             df[self.date_column] = pd.to_datetime(df[self.date_column], format=self.date_format)
         return df.reset_index(drop=True)
 
@@ -122,6 +123,9 @@ class XFlowDataset(AbstractDataset[Data, Data]):
         self.load_class = load_class
 
     def _load(self, **kwargs: Any) -> Data:
+        # check if self._filepath is a directory:
+        if Path(self._filepath).is_dir():
+            self._filepath = Path(self._filepath) / "data.csv"  # type: ignore
         df = pd.read_csv(Path(self._filepath))
         with open(Path(self._filepath).parent / "metadata.json") as f:
             metadata = json.load(f)
@@ -130,9 +134,14 @@ class XFlowDataset(AbstractDataset[Data, Data]):
 
     def _save(self, data: Data) -> None:
         Path(self._filepath).mkdir(parents=True, exist_ok=True)
-        data.df.to_csv(Path(self._filepath) / "data.csv", index=False)
         metadata = asdict(data)
         metadata.pop("df")
+
+        data.df.to_csv(
+            Path(self._filepath) / "data.csv",
+            index=False,
+            date_format=metadata.get("date_format", None),
+        )
         with open(Path(self._filepath) / "metadata.json", "w") as f:
             json.dump(metadata, f, default=str)
 

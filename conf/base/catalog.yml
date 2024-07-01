@@ -25,15 +25,19 @@ raw_data_test:
       layer: Raw Data
 
 "dataprep.{variant}.data_train_transformed":
-  type: kedro_datasets.pandas.CSVDataset
-  filepath: data/outputs/dataprep/{variant}/data_train_transformed.csv
+  type: x_flow.utils.data.XFlowDataset
+  filepath: data/outputs/dataprep/{variant}/data_train_transformed/
+  load_args:
+    load_class: "TrainingData"
   metadata:
     kedro-viz:
       layer: Data Preparation
 
 "dataprep.{variant}.data_test_transformed":
-  type: kedro_datasets.pandas.CSVDataset
-  filepath: data/outputs/dataprep/{variant}/data_test_transformed.csv
+  type: x_flow.utils.data.XFlowDataset
+  filepath: data/outputs/dataprep/{variant}/data_test_transformed/
+  load_args:
+    load_class: "ValidationData"
   metadata:
     kedro-viz:
       layer: Data Preparation
