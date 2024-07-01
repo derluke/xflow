@@ -15,9 +15,5 @@ experiment_config:
     use_time_series: False
     datetime_partition_column: date
     number_of_backtests: 3
-  binarize_data:
-  fire_config:
-  group_data:
-    partition_column:
+  
   main_metric: "generalized_f1"
-  date_format: "%d/%m/%Y"

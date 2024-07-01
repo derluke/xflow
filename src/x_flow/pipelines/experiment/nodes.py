@@ -22,9 +22,7 @@ from x_flow.utils.dr_helpers import (
     get_training_predictions,
     wait_for_jobs,
 )
-from x_flow.utils.preprocessing.binary_transformer import BinarizeData
-from x_flow.utils.preprocessing.data_preprocessor import DataPreprocessor, Identity
-from x_flow.utils.preprocessing.fire import FIRE
+
 
 # pyright: reportPrivateImportUsage=false
 import datarobot as dr
@@ -33,7 +31,6 @@ from datarobot.rest import RESTClientObject
 from datarobotx.idp.autopilot import get_or_create_autopilot_run
 from datarobotx.idp.common.hashing import get_hash
 from datarobotx.idp.datasets import get_or_create_dataset_from_df
-from datarobotx.idp.use_cases import get_or_create_use_case
 
 try:
     from datarobot import UseCase  # type: ignore
@@ -43,6 +40,16 @@ except:
         def __init__(self, id: Optional[str], name: str):
             self.id = id
             self.name = name
+
+
+try:
+    from datarobot import UseCase  # type: ignore  # noqa: F401
+
+    from datarobotx.idp.use_cases import get_or_create_use_case  # type: ignore
+except ImportError:
+
+    def get_or_create_use_case(*args, **kwags):  # type: ignore
+        return "not_supported"
 
 
 # TODO:
@@ -89,42 +96,42 @@ for handler in dr_logger.handlers:
         dr_logger.removeHandler(handler)
 
 
-def unpack_row_to_args(
-    control_series: dict[str, Any],
-    arg_look: Dict[str, Any],
-    arg_values_dict: Optional[Dict[str, Any]] = None,
-    verbose: bool = False,
-) -> dict[str, Any]:
-    # Your code here
-    if arg_values_dict is None:
-        # initialise the dict with a control entry
-        arg_values_dict = {"_control": {}}
+# def unpack_row_to_args(
+#     control_series: dict[str, Any],
+#     arg_look: Dict[str, Any],
+#     arg_values_dict: Optional[Dict[str, Any]] = None,
+#     verbose: bool = False,
+# ) -> dict[str, Any]:
+#     # Your code here
+#     if arg_values_dict is None:
+#         # initialise the dict with a control entry
+#         arg_values_dict = {"_control": {}}
 
-    for param, param_value in control_series.items():
-        if param in arg_look.keys():
-            target_object = arg_look[param]
+#     for param, param_value in control_series.items():
+#         if param in arg_look.keys():
+#             target_object = arg_look[param]
 
-            # do nothing if the target object is ambiguous
-            if target_object is not None:
-                # init entry for target object if we don't already have
-                if pd.notnull(param_value):
-                    if target_object not in arg_values_dict.keys():
-                        arg_values_dict[target_object] = {}
-                    arg_values_dict[target_object][param] = param_value
+#             # do nothing if the target object is ambiguous
+#             if target_object is not None:
+#                 # init entry for target object if we don't already have
+#                 if pd.notnull(param_value):
+#                     if target_object not in arg_values_dict.keys():
+#                         arg_values_dict[target_object] = {}
+#                     arg_values_dict[target_object][param] = param_value
 
-                if verbose:
-                    log.info(f"{param}: {param_value}, {target_object}")
+#                 if verbose:
+#                     log.info(f"{param}: {param_value}, {target_object}")
 
-        elif pd.notnull(param_value) and param[0] == "_":
-            # non-null values for control parameters (prefixed with '_') are assigned to the control dict
-            arg_values_dict["_control"][param] = param_value
+#         elif pd.notnull(param_value) and param[0] == "_":
+#             # non-null values for control parameters (prefixed with '_') are assigned to the control dict
+#             arg_values_dict["_control"][param] = param_value
 
-        # TODO: handle ambiguous arguments better
+#         # TODO: handle ambiguous arguments better
 
-    if verbose:
-        log.info(f"-> {arg_values_dict}")
+#     if verbose:
+#         log.info(f"-> {arg_values_dict}")
 
-    return arg_values_dict
+#     return arg_values_dict
 
 
 # def binarize_data_if_specified(  # noqa: PLR0913
@@ -155,34 +162,6 @@ def unpack_row_to_args(
 #         categorical_data.drop(columns=[target], inplace=True)
 
 #     return categorical_data, binarize_new_target_name
-
-
-def preprocessing_fit_transform(data: Data, *transformations: DataPreprocessor) -> Data:
-    for transformation in transformations:
-        data = transformation.fit_transform(data)
-    return data
-
-
-def preprocessing_transform(data: Data, *transformations: DataPreprocessor) -> Data:
-    for transformation in transformations:
-        data = transformation.transform(data)
-    return data
-
-
-def register_binarize_preprocessor(binarize_data_config: dict[str, Any]) -> DataPreprocessor:
-    if binarize_data_config is None:
-        transformer = Identity()
-    else:
-        transformer = BinarizeData(**binarize_data_config)
-    return transformer
-
-
-def register_fire_preprocessor(fire_config: dict[str, Any]) -> DataPreprocessor:
-    if fire_config is None:
-        transformer = Identity()
-    else:
-        transformer = FIRE(**fire_config)
-    return transformer
 
 
 def get_or_create_use_case_with_lock(

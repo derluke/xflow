@@ -1,11 +1,3 @@
-# experiments:
-#   type: kedro_datasets.pandas.CSVDataset
-#   filepath: include/x_flow/config/experiments.csv
-
-# param_mapping:
-#   type: kedro_datasets.yaml.YAMLDataset
-#   filepath: include/x_flow/config/param_mapping.yml
-
 "experiment.{variant}.use_case_id":
   type: kedro_datasets.json.JSONDataset
   filepath: data/outputs/experiments/{variant}/use_case_id.json
@@ -32,6 +24,20 @@ raw_data_test:
     kedro-viz:
       layer: Raw Data
 
+"dataprep.{variant}.data_train_transformed":
+  type: kedro_datasets.pandas.CSVDataset
+  filepath: data/outputs/dataprep/{variant}/data_train_transformed.csv
+  metadata:
+    kedro-viz:
+      layer: Data Preparation
+
+"dataprep.{variant}.data_test_transformed":
+  type: kedro_datasets.pandas.CSVDataset
+  filepath: data/outputs/dataprep/{variant}/data_test_transformed.csv
+  metadata:
+    kedro-viz:
+      layer: Data Preparation
+
 autopilot_run:
   type: kedro_datasets.text.TextDataset
   filepath: include/x_flow/autopilot_run/autopilot_run.txt
@@ -45,9 +51,6 @@ autopilot_run:
   metadata:
     kedro-viz:
       layer: DataRobot
-  # dataset:
-  #   type: kedro_datasets.yaml.YAMLDataset
-  # filename_suffix: ".yml"
 
 "experiment.{variant}.backtest":
   type: partitions.IncrementalDataset
@@ -89,28 +92,12 @@ autopilot_run:
     kedro-viz:
       layer: DataRobot
 
-# "measure.{variant}.backtest_metric":
-#   type: kedro_datasets.pandas.CSVDataset
-#   filepath: data/outputs/metrics/backtest/{variant}/data.csv
-
-# "measure.{variant}.external_holdout_metrics":
-#   type: kedro_datasets.pandas.CSVDataset
-#   filepath: data/outputs/metrics/external_holdout/{variant}/data.csv
-
 "measure.{variant}.{data_subset}_metrics_grouped":
   type: kedro_datasets.pandas.CSVDataset
   filepath: data/outputs/metrics_grouped/{data_subset}/{variant}/data.csv
   metadata:
     kedro-viz:
       layer: Measure
-
-# "measure.{variant}.backtest_metrics_grouped":
-#   type: kedro_datasets.pandas.CSVDataset
-#   filepath: data/outputs/metrics_grouped/backtest/{variant}/data.csv
-
-# "measure.{variant}.external_holdout_metrics_grouped":
-#   type: kedro_datasets.pandas.CSVDataset
-#   filepath: data/outputs/metrics_grouped/external_holdout/{variant}/data.csv
 
 "measure.{variant}.best_models":
   type: kedro_datasets.pandas.CSVDataset

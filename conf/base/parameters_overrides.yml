@@ -58,3 +58,19 @@ measure:
   full_NC_BC:
     _overrides: *id005
     measure_config: ${merge:${...measure_config},${._overrides}}
+dataprep:
+  simple:
+    _overrides: *id001
+    dataprep_config: ${merge:${...dataprep_config},${._overrides}}
+  full:
+    _overrides: *id002
+    dataprep_config: ${merge:${...dataprep_config},${._overrides}}
+  simple_grouped:
+    _overrides: *id003
+    dataprep_config: ${merge:${...dataprep_config},${._overrides}}
+  simple_NC_BC:
+    _overrides: *id004
+    dataprep_config: ${merge:${...dataprep_config},${._overrides}}
+  full_NC_BC:
+    _overrides: *id005
+    dataprep_config: ${merge:${...dataprep_config},${._overrides}}

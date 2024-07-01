@@ -72,7 +72,7 @@ global_params = yaml.safe_load(open("include/x_flow/config/param_mapping.yml"))
 experiments_dict = load_data(experiments)
 decoded_experiments = decode_config(experiments_dict, global_params, {})
 
-multi_pipelines = ["experiment", "measure"]
+multi_pipelines = ["experiment", "measure", "dataprep"]
 overrides: dict[str, Any] = {}  # {"experiment": {"project": "${..project}"}}
 for multi_pipeline in multi_pipelines:
     overrides[multi_pipeline] = {}
