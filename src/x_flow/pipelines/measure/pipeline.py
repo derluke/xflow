@@ -28,7 +28,7 @@ def create_pipeline(**kwargs) -> Pipeline:
                 "prediction_data": f"{subset}",
             }
             if grouped:
-                input_dict["best_models"] = "best_models"
+                input_dict["best_models"] = "_best_models"
             nodes.append(
                 node(
                     func=calculate_metrics,
@@ -37,6 +37,7 @@ def create_pipeline(**kwargs) -> Pipeline:
                     name=f"calculate_{subset}_metrics" + "_grouped" * grouped,
                 )
             )
+
     nodes.append(
         node(
             name="get_best_models",
@@ -45,90 +46,20 @@ def create_pipeline(**kwargs) -> Pipeline:
                 "metrics_by_partition": "external_holdout_metrics",
                 "experiment_config": "params:experiment_config",
             },
-            outputs="best_models",
+            outputs="_best_models",
         )
     )
 
-    # nodes = [
-    #     node(
-    #         func=calculate_metrics,
-    #         inputs={
-    #             "experiment_config": "params:experiment_config",
-    #             "metric_config": "params:measure_config.metric_config",
-    #             "metrics": "params:measure_config.metrics",
-    #             "prediction_data": "holdouts",
-    #         },
-    #         outputs="holdout_metrics",
-    #         name="calculate_holdout_metrics",
-    #     ),
-    #     node(
-    #         func=calculate_metrics,
-    #         inputs={
-    #             "experiment_config": "params:experiment_config",
-    #             "metric_config": "params:measure_config.metric_config",
-    #             "metrics": "params:measure_config.metrics",
-    #             "prediction_data": "backtests",
-    #         },
-    #         outputs="backtest_metrics",
-    #         name="calculate_backtest_metrics",
-    #     ),
-    #     node(
-    #         func=calculate_metrics,
-    #         inputs={
-    #             "experiment_config": "params:experiment_config",
-    #             "metric_config": "params:measure_config.metric_config",
-    #             "metrics": "params:measure_config.metrics",
-    #             "prediction_data": "external_holdout",
-    #         },
-    #         outputs="external_holdout_metrics",
-    #         name="calculate_external_holdout_metrics",
-    #     ),
-    #     node(
-    #         name="get_best_models",
-    #         func=get_best_models,
-    #         inputs={
-    #             "metrics_by_partition": "external_holdout_metrics",
-    #             "experiment_config": "params:experiment_config",
-    #         },
-    #         outputs="best_models",
-    #     ),
-    #     node(
-    #         func=calculate_metrics,
-    #         inputs={
-    #             "experiment_config": "params:experiment_config",
-    #             "metric_config": "params:measure_config.metric_config",
-    #             "metrics": "params:measure_config.metrics",
-    #             "prediction_data": "holdouts",
-    #             "best_models": "best_models",
-    #         },
-    #         outputs="holdout_metrics_grouped",
-    #         name="calculate_holdout_metrics_grouped",
-    #     ),
-    #     node(
-    #         func=calculate_metrics,
-    #         inputs={
-    #             "experiment_config": "params:experiment_config",
-    #             "metric_config": "params:measure_config.metric_config",
-    #             "metrics": "params:measure_config.metrics",
-    #             "prediction_data": "backtests",
-    #             "best_models": "best_models",
-    #         },
-    #         outputs="backtest_metrics_grouped",
-    #         name="calculate_backtest_metrics_grouped",
-    #     ),
-    #     node(
-    #         func=calculate_metrics,
-    #         inputs={
-    #             "experiment_config": "params:experiment_config",
-    #             "metric_config": "params:measure_config.metric_config",
-    #             "metrics": "params:measure_config.metrics",
-    #             "prediction_data": "external_holdout",
-    #             "best_models": "best_models",
-    #         },
-    #         outputs="external_holdout_metrics_grouped",
-    #         name="calculate_external_holdout_metrics_grouped",
-    #     ),
-    # ]
+    nodes.append(
+        node(
+            name="best_models",
+            func=lambda best_models: best_models,
+            inputs={
+                "best_models": "_best_models",
+            },
+            outputs="best_models",
+        )
+    )
 
     measure_template = pipeline(nodes)
     namespace = "measure"
@@ -141,9 +72,9 @@ def create_pipeline(**kwargs) -> Pipeline:
                 "params:experiment_config": f"params:experiment.{variant}.experiment_config"
             },
             inputs={
-                "holdout": f"{variant}.holdout",
-                "backtest": f"{variant}.backtest",
-                "external_holdout": f"{variant}.external_holdout",
+                "holdout": f"experiment.{variant}.holdout",
+                "backtest": f"experiment.{variant}.backtest",
+                "external_holdout": f"experiment.{variant}.external_holdout",
             },
             namespace=f"{namespace}.{variant}",
             tags=[variant, namespace],

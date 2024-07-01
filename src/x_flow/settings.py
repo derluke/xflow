@@ -85,8 +85,12 @@ for multi_pipeline in multi_pipelines:
         }
         overrides[multi_pipeline][experiment_name] = override_dict
 
-with open("conf/base/parameters_overrides.yml", "w") as f:
-    yaml.dump(overrides, f, sort_keys=False)
+# write only if contents have changed
+with open("conf/base/parameters_overrides.yml") as f:
+    existing_content = f.read()
+if existing_content != yaml.dump(overrides, sort_keys=False):
+    with open("conf/base/parameters_overrides.yml", "w") as f:
+        yaml.dump(overrides, f, sort_keys=False)
 
 
 CONFIG_LOADER_CLASS = OmegaConfigLoader

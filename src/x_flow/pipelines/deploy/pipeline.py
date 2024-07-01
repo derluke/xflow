@@ -21,7 +21,7 @@ def create_pipeline(**kwargs: Any) -> Pipeline:
                 "token": "params:credentials.datarobot.api_token",
                 "endpoint": "params:credentials.datarobot.endpoint",
                 "default_prediction_server_id": "params:credentials.datarobot.default_prediction_server_id",
-                "best_models": "measure.best_models",
+                "best_models": "best_models",
             },
             outputs="deployments",
         )
@@ -39,7 +39,7 @@ def create_pipeline(**kwargs: Any) -> Pipeline:
                 "params:credentials.datarobot.api_token": "params:credentials.datarobot.api_token",
                 "params:credentials.datarobot.default_prediction_server_id": "params:credentials.datarobot.default_prediction_server_id",
             },
-            inputs={"measure.best_models": f"measure.{variant}.best_models"},
+            inputs={"best_models": f"measure.{variant}.best_models"},
             namespace=f"{namespace}.{variant}",
             tags=[variant, namespace],
         )

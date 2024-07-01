@@ -213,12 +213,12 @@ def create_pipeline(**kwargs) -> Pipeline:
                 "params:credentials.datarobot.api_token": "params:credentials.datarobot.api_token",
             },
             inputs={"raw_data_train", "raw_data_test"},
-            outputs={
-                "backtest": f"{variant}.backtest",
-                "holdout": f"{variant}.holdout",
-                "external_holdout": f"{variant}.external_holdout",
-                "project_dict": f"{variant}.project_dict",
-            },
+            # outputs={
+            #     "backtest",
+            #     "holdout",
+            #     "external_holdout",
+            #     "project_dict",
+            # },
             namespace=f"{namespace}.{variant}",
             tags=[variant, namespace],
         )
