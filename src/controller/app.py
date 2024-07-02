@@ -1,5 +1,6 @@
 import logging
 import pickle
+import time
 from typing import Any
 
 from joblib import Parallel, delayed
@@ -39,7 +40,12 @@ class XFlowApp(AbstractKedroBootApp):  # type: ignore
                     "experiment_config": experiment,
                 }
             else:
-                raise ValueError(f"Unknown namespace: {namespace}")
+                return {
+                    "experiment_name": experiment["experiment_name"],
+                    "experiment_config": experiment,
+                }
+            # else:
+            #     raise ValueError(f"Unknown namespace: {namespace}")
 
         def run_namespace_session(experiment: dict[str, Any], namespace: str) -> dict[str, Any]:
             experiment_name = experiment["experiment_name"]
@@ -58,7 +64,7 @@ class XFlowApp(AbstractKedroBootApp):  # type: ignore
         def run_experiments(
             experiments: list[dict[str, Any]], namespace: str
         ) -> list[dict[str, Any]]:
-            results = Parallel(n_jobs=100, backend="threading")(
+            results = Parallel(n_jobs=24, backend="threading")(
                 delayed(run_namespace_session)(experiment, namespace) for experiment in experiments
             )
             # log.info(f"{namespace}_results: {results}")
@@ -66,13 +72,27 @@ class XFlowApp(AbstractKedroBootApp):  # type: ignore
 
         # leveraging config_loader to manage app's configs
         experiments = kedro_boot_session.run(namespace="config")
-
-        run_experiments(experiments, "experiment")
+        experiment_results = run_experiments(experiments, "experiment")
         measure_results = run_experiments(experiments, "measure")
-
-        # save results
-        # with open("experiment_results.pkl", "wb") as f:
-        #     pickle.dump(experiment_results, f)
-
-        with open("measure_results.pkl", "wb") as f:
-            pickle.dump(measure_results, f)
+        deploy_results = run_experiments(experiments, "deploy")
+        deployments = [result["output_dict"]["deployments"] for result in deploy_results]
+        holdout_metrics_grouped = [
+            result["output_dict"]["measure.holdout_metrics_grouped"] for result in measure_results
+        ]
+        backtest_metrics_grouped = [
+            result["output_dict"]["measure.backtest_metrics_grouped"] for result in measure_results
+        ]
+        external_holdout_metrics_grouped = [
+            result["output_dict"]["measure.external_holdout_metrics_grouped"]
+            for result in measure_results
+        ]
+        # log.info(f"Deployments: {deployments}")
+        kedro_boot_session.run(
+            namespace="collect",
+            inputs={
+                "deployments_combined": deployments,
+                "holdout_metrics_combined": holdout_metrics_grouped,
+                "backtest_metrics_combined": backtest_metrics_grouped,
+                "external_holdout_metrics_combined": external_holdout_metrics_grouped,
+            },
+        )

@@ -22,9 +22,7 @@ from x_flow.utils.dr_helpers import (
     get_training_predictions,
     wait_for_jobs,
 )
-from x_flow.utils.preprocessing.binary_transformer import BinarizeData
-from x_flow.utils.preprocessing.data_preprocessor import DataPreprocessor, Identity
-from x_flow.utils.preprocessing.fire import FIRE
+
 
 # pyright: reportPrivateImportUsage=false
 import datarobot as dr
@@ -33,7 +31,6 @@ from datarobot.rest import RESTClientObject
 from datarobotx.idp.autopilot import get_or_create_autopilot_run
 from datarobotx.idp.common.hashing import get_hash
 from datarobotx.idp.datasets import get_or_create_dataset_from_df
-from datarobotx.idp.use_cases import get_or_create_use_case
 
 try:
     from datarobot import UseCase  # type: ignore
@@ -43,6 +40,16 @@ except:
         def __init__(self, id: Optional[str], name: str):
             self.id = id
             self.name = name
+
+
+try:
+    from datarobot import UseCase  # type: ignore  # noqa: F401
+
+    from datarobotx.idp.use_cases import get_or_create_use_case  # type: ignore
+except ImportError:
+
+    def get_or_create_use_case(*args, **kwags):  # type: ignore
+        return "not_supported"
 
 
 # TODO:
@@ -60,7 +67,7 @@ client_request_fun = RESTClientObject.request
 
 
 def request_with_rate_limiter(*args: Any, **kwargs: Any) -> requests.Response:
-    rate_limiter.acquire()
+    # rate_limiter.acquire()
     try:
         response = client_request_fun(*args, **kwargs)
     except dr.errors.ClientError as e:
@@ -74,7 +81,7 @@ def request_with_rate_limiter(*args: Any, **kwargs: Any) -> requests.Response:
             response = client_request_fun(*args, **kwargs)
         else:
             raise e
-    rate_limiter.release()
+    # rate_limiter.release()
     return response
 
 
@@ -89,42 +96,42 @@ for handler in dr_logger.handlers:
         dr_logger.removeHandler(handler)
 
 
-def unpack_row_to_args(
-    control_series: dict[str, Any],
-    arg_look: Dict[str, Any],
-    arg_values_dict: Optional[Dict[str, Any]] = None,
-    verbose: bool = False,
-) -> dict[str, Any]:
-    # Your code here
-    if arg_values_dict is None:
-        # initialise the dict with a control entry
-        arg_values_dict = {"_control": {}}
+# def unpack_row_to_args(
+#     control_series: dict[str, Any],
+#     arg_look: Dict[str, Any],
+#     arg_values_dict: Optional[Dict[str, Any]] = None,
+#     verbose: bool = False,
+# ) -> dict[str, Any]:
+#     # Your code here
+#     if arg_values_dict is None:
+#         # initialise the dict with a control entry
+#         arg_values_dict = {"_control": {}}
 
-    for param, param_value in control_series.items():
-        if param in arg_look.keys():
-            target_object = arg_look[param]
+#     for param, param_value in control_series.items():
+#         if param in arg_look.keys():
+#             target_object = arg_look[param]
 
-            # do nothing if the target object is ambiguous
-            if target_object is not None:
-                # init entry for target object if we don't already have
-                if pd.notnull(param_value):
-                    if target_object not in arg_values_dict.keys():
-                        arg_values_dict[target_object] = {}
-                    arg_values_dict[target_object][param] = param_value
+#             # do nothing if the target object is ambiguous
+#             if target_object is not None:
+#                 # init entry for target object if we don't already have
+#                 if pd.notnull(param_value):
+#                     if target_object not in arg_values_dict.keys():
+#                         arg_values_dict[target_object] = {}
+#                     arg_values_dict[target_object][param] = param_value
 
-                if verbose:
-                    log.info(f"{param}: {param_value}, {target_object}")
+#                 if verbose:
+#                     log.info(f"{param}: {param_value}, {target_object}")
 
-        elif pd.notnull(param_value) and param[0] == "_":
-            # non-null values for control parameters (prefixed with '_') are assigned to the control dict
-            arg_values_dict["_control"][param] = param_value
+#         elif pd.notnull(param_value) and param[0] == "_":
+#             # non-null values for control parameters (prefixed with '_') are assigned to the control dict
+#             arg_values_dict["_control"][param] = param_value
 
-        # TODO: handle ambiguous arguments better
+#         # TODO: handle ambiguous arguments better
 
-    if verbose:
-        log.info(f"-> {arg_values_dict}")
+#     if verbose:
+#         log.info(f"-> {arg_values_dict}")
 
-    return arg_values_dict
+#     return arg_values_dict
 
 
 # def binarize_data_if_specified(  # noqa: PLR0913
@@ -155,34 +162,6 @@ def unpack_row_to_args(
 #         categorical_data.drop(columns=[target], inplace=True)
 
 #     return categorical_data, binarize_new_target_name
-
-
-def preprocessing_fit_transform(data: Data, *transformations: DataPreprocessor) -> Data:
-    for transformation in transformations:
-        data = transformation.fit_transform(data)
-    return data
-
-
-def preprocessing_transform(data: Data, *transformations: DataPreprocessor) -> Data:
-    for transformation in transformations:
-        data = transformation.transform(data)
-    return data
-
-
-def register_binarize_preprocessor(binarize_data_config: dict[str, Any]) -> DataPreprocessor:
-    if binarize_data_config is None:
-        transformer = Identity()
-    else:
-        transformer = BinarizeData(**binarize_data_config)
-    return transformer
-
-
-def register_fire_preprocessor(fire_config: dict[str, Any]) -> DataPreprocessor:
-    if fire_config is None:
-        transformer = Identity()
-    else:
-        transformer = FIRE(**fire_config)
-    return transformer
 
 
 def get_or_create_use_case_with_lock(
@@ -238,7 +217,7 @@ def get_or_create_dataset_from_df_with_lock(
             )
         )
 
-    results = Parallel(n_jobs=10, backend="threading")(jobs)
+    results = Parallel(n_jobs=24, backend="threading")(jobs)
 
     return_dict = {}
     for group, result in zip(group_data.keys(), results):
@@ -311,7 +290,7 @@ def run_autopilot(  # noqa: PLR0913
             )
         )
 
-    results = Parallel(n_jobs=100, backend="threading")(
+    results = Parallel(n_jobs=24, backend="threading")(
         job for group in jobs.keys() for job in jobs[group]
     )
 
@@ -331,10 +310,26 @@ def unlock_holdouts(
 
 
 def merge_predictions(
-    training_predictions: pd.DataFrame, training_data: pd.DataFrame
+    training_predictions: pd.DataFrame,
+    training_data: pd.DataFrame,
+    model: dr.Model,
+    date_column: Optional[str] = None,
 ) -> pd.DataFrame:
-    training_predictions = training_predictions.set_index("row_id")
-    return training_data.join(training_predictions, how="inner")
+    project = dr.Project.get(model.project_id)
+    if project.use_time_series:
+        training_predictions[date_column] = training_predictions["forecast_point"]
+        training_predictions[date_column] = pd.to_datetime(
+            training_predictions[date_column]
+        ).dt.tz_convert(None)
+        training_data[date_column] = pd.to_datetime(training_data[date_column])
+        return (
+            training_data.set_index(date_column)
+            .join(training_predictions.set_index(date_column), how="inner")
+            .reset_index()
+        )
+    else:
+        training_predictions = training_predictions.set_index("row_id")
+        return training_data.join(training_predictions, how="inner")
 
 
 def calculate_backtests(
@@ -363,7 +358,7 @@ def calculate_backtests(
         models = get_models(project)[:max_models_per_project]
         all_models.extend(models)  # type: ignore[arg-type]
 
-    Parallel(n_jobs=100, backend="threading")(
+    Parallel(n_jobs=24, backend="threading")(
         delayed(_calculate_backtest)(model) for model in all_models
     )
     # wait for all jobs on the project to complete
@@ -408,11 +403,17 @@ def get_backtest_predictions(
     ) -> Dict[str, ValidationPredictionData]:
         training_predictions = get_training_predictions(model, data_subset)  # type: ignore
         training_data = df.get_partitions()[group].copy()
-        merged_predictions = merge_predictions(training_predictions, training_data)  # type: ignore
+        merged_predictions = merge_predictions(
+            training_predictions,  # type: ignore
+            training_data,
+            model=model,
+            date_column=df.date_column,
+        )  # type: ignore
 
         result_dict = {}
         for partition, group_df in merged_predictions.groupby("partition_id"):
             result = ValidationPredictionData(**asdict(df))
+            result.date_format = None  # type: ignore
             result.df = group_df
             result_dict[f"{group}/{model.project_id}/{model.id}/{partition}"] = result
 
@@ -424,7 +425,7 @@ def get_backtest_predictions(
         for model in get_models(dr.Project.get(project_id))[:max_models_per_project]  # type: ignore[attr-defined]
     )
 
-    results = Parallel(n_jobs=100, backend="threading")(tasks)
+    results = Parallel(n_jobs=24, backend="threading")(tasks)
 
     aggregated_results = {}
     for result in results:
@@ -457,9 +458,15 @@ def get_external_predictions(
         model: dr.Model, prediction_df: pd.DataFrame, group: str
     ) -> dict[str, ValidationPredictionData]:
         external_prediction_df = get_external_holdout_predictions(model, prediction_df)
-        merged_predictions = merge_predictions(external_prediction_df, prediction_df)
+        merged_predictions = merge_predictions(
+            external_prediction_df,
+            prediction_df,
+            model=model,
+            date_column=external_holdout.date_column,
+        )
 
         result = ValidationPredictionData(**asdict(external_holdout))
+        result.date_format = None  # type: ignore
         result.df = merged_predictions
         return {f"{group}/{model.project_id}/{model.id}/external_holdout": result}
 
@@ -472,7 +479,7 @@ def get_external_predictions(
         for model in get_models(dr.Project.get(project_id))[:max_models_per_project]  # type: ignore[attr-defined]
     )
 
-    results = Parallel(n_jobs=100, backend="threading")(tasks)
+    results = Parallel(n_jobs=24, backend="threading")(tasks)
 
     # Flatten results and combine into a single dictionary
     aggregated_results = {}

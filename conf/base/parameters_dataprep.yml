@@ -3,3 +3,10 @@
 #
 # Documentation for this file format can be found in "Parameters"
 # Link: https://docs.kedro.org/en/0.19.5/configuration/parameters.html
+
+dataprep_config:
+  binarize_data:
+  fire_config:
+  group_data:
+    partition_column:
+  date_format: 

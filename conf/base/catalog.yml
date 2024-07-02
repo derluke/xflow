@@ -1,93 +1,151 @@
-experiments:
-  type: kedro_datasets.pandas.CSVDataset
-  filepath: include/x_flow/config/experiments.csv
-
-param_mapping:
-  type: kedro_datasets.yaml.YAMLDataset
-  filepath: include/x_flow/config/param_mapping.yml
-
-use_case_id:
-  type: kedro_datasets.text.TextDataset
-  filepath: data/outputs/use_case_id.txt
+"experiment.{variant}.use_case_id":
+  type: kedro_datasets.json.JSONDataset
+  filepath: data/outputs/experiments/{variant}/use_case_id.json
+  metadata:
+    kedro-viz:
+      layer: DataRobot
+      preview: true
 
 dataset_id:
   type: kedro_datasets.text.TextDataset
   filepath: data/outputs/dataset_id.txt
 
-raw_data:
-  type: kedro_datasets.pandas.CSVDataset
-  filepath: include/x_flow/raw_data/nowcasting_training_data.csv
-
 raw_data_train:
   type: kedro_datasets.pandas.CSVDataset
   filepath: include/x_flow/raw_data/nowcasting_data_train.csv
+  metadata:
+    kedro-viz:
+      layer: Raw Data
 
 raw_data_test:
   type: kedro_datasets.pandas.CSVDataset
   filepath: include/x_flow/raw_data/nowcasting_data_test.csv
+  metadata:
+    kedro-viz:
+      layer: Raw Data
+
+"dataprep.{variant}.data_train_transformed":
+  type: x_flow.utils.data.XFlowDataset
+  filepath: data/outputs/dataprep/{variant}/data_train_transformed/
+  load_args:
+    load_class: "TrainingData"
+  metadata:
+    kedro-viz:
+      layer: Data Preparation
+
+"dataprep.{variant}.data_test_transformed":
+  type: x_flow.utils.data.XFlowDataset
+  filepath: data/outputs/dataprep/{variant}/data_test_transformed/
+  load_args:
+    load_class: "ValidationData"
+  metadata:
+    kedro-viz:
+      layer: Data Preparation
 
 autopilot_run:
   type: kedro_datasets.text.TextDataset
   filepath: include/x_flow/autopilot_run/autopilot_run.txt
+  metadata:
+    kedro-viz:
+      layer: DataRobot
 
-experiment.backtests:
-  type: partitions.PartitionedDataset
-  path: data/outputs/${itertime_params:experiment_name}/backtests/
-  dataset: 
+"experiment.{variant}.project_dict":
+  type: kedro_datasets.yaml.YAMLDataset
+  filepath: "data/outputs/experiments/{variant}/project_dicts/project_dict.yml"
+  metadata:
+    kedro-viz:
+      layer: DataRobot
+
+"experiment.{variant}.backtest":
+  type: partitions.IncrementalDataset
+  path: "data/outputs/experiments/{variant}/backtest/"
+  dataset:
+    type: x_flow.utils.data.XFlowDataset
+    load_args:
+      load_class: "ValidationPredictionData"
+  filename_suffix: ".csv"
+  metadata:
+    kedro-viz:
+      layer: DataRobot
+
+"experiment.{variant}.holdout":
+  type: partitions.IncrementalDataset
+  path: "data/outputs/experiments/{variant}/holdout/"
+  dataset:
     type: x_flow.utils.data.XFlowDataset
     load_args:
       load_class: "ValidationPredictionData"
   filename_suffix: ".csv"
 
-experiment.holdouts:
-  type: partitions.PartitionedDataset
-  path: data/outputs/${itertime_params:experiment_name}/holdout/
-  dataset: 
+"experiment.{variant}.external_holdout":
+  type: partitions.IncrementalDataset
+  path: data/outputs/experiments/{variant}/external_holdout/
+  dataset:
     type: x_flow.utils.data.XFlowDataset
     load_args:
       load_class: "ValidationPredictionData"
   filename_suffix: ".csv"
+  metadata:
+    kedro-viz:
+      layer: DataRobot
 
-experiment.external_holdout:
-  type: partitions.PartitionedDataset
-  path: data/outputs/${itertime_params:experiment_name}/external_holdout/
-  dataset: 
-    type: x_flow.utils.data.XFlowDataset
-    load_args:
-      load_class: "ValidationPredictionData"
-  filename_suffix: ".csv"
-
-experiment.backtests_grouped:
-  type: partitions.PartitionedDataset
-  path: data/outputs/simple_NC_BC/backtests/
-  dataset: 
-    type: x_flow.utils.data.XFlowDataset
-    load_args:
-      load_class: "ValidationPredictionData"
-  filename_suffix: ".csv"
-# experiment.project_dict:
-#   type: partitions.PartitionedDataset
-#   path: data/outputs/${itertime_params:experiment_name}/project_dict/
-#   dataset: pickle.PickleDataset
-#   filename_suffix: ".pkl"
-
-# experiment.target_binarized:
-#   type: kedro_datasets.text.TextDataset
-#   filepath: data/outputs/${itertime_params:experiment_name}/target_binarized.txt
-
-measure.holdout_metrics:
+"measure.{variant}.{data_subset}_metrics":
   type: kedro_datasets.pandas.CSVDataset
-  filepath: data/outputs/${itertime_params:experiment_name}/metrics/holdout_metrics.csv
+  filepath: data/outputs/metrics/{data_subset}/{variant}/data.csv
+  metadata:
+    kedro-viz:
+      layer: DataRobot
 
-measure.backtest_metrics:
+"measure.{variant}.{data_subset}_metrics_grouped":
   type: kedro_datasets.pandas.CSVDataset
-  filepath: data/outputs/${itertime_params:experiment_name}/metrics/backtest_metrics.csv
+  filepath: data/outputs/metrics_grouped/{data_subset}/{variant}/data.csv
+  metadata:
+    kedro-viz:
+      layer: Measure
 
-measure.external_holdout_metrics:
+"measure.{variant}.best_models":
   type: kedro_datasets.pandas.CSVDataset
-  filepath: data/outputs/${itertime_params:experiment_name}/metrics/external_holdout_metrics.csv
+  filepath: data/outputs/experiments/{variant}/models/best_model.csv
+  metadata:
+    kedro-viz:
+      layer: Measure
 
+"deploy.{variant}.deployments":
+  type: kedro_datasets.yaml.YAMLDataset
+  filepath: data/outputs/experiments/{variant}/deployments/deployments.yml
+  metadata:
+    kedro-viz:
+      layer: Production
 
-"{node}_checksum": 
+collect.deployments_combined:
+  type: MemoryDataset
+  metadata:
+    kedro-viz:
+      layer: Result
+
+collect.external_holdout_metrics_combined:
+  type: MemoryDataset
+
+collect.backtest_metrics_combined:
+  type: MemoryDataset
+
+collect.holdout_metrics_combined:
+  type: MemoryDataset
+
+collect.collected_deployments:
+  type: kedro_datasets.pandas.CSVDataset
+  filepath: data/outputs/collected_deployments.csv
+  metadata:
+    kedro-viz:
+      layer: Result
+
+collect.leaderboard:
+  type: kedro_datasets.pandas.CSVDataset
+  filepath: data/outputs/leaderboard.csv
+  metadata:
+    kedro-viz:
+      layer: Result
+
+"{node}_checksum":
   type: kedro_datasets.text.TextDataset
-  filepath: data/outputs/checksums/${itertime_params:experiment_name}/{node}.txt
+  filepath: data/outputs/checksums/{node}.txt

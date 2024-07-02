@@ -4,6 +4,9 @@ import pandas as pd
 from sklearn.metrics import f1_score
 
 from .metrics import Metric
+import logging
+
+log = logging.getLogger(__name__)
 
 
 class GeneralizedF1(Metric):
@@ -35,6 +38,7 @@ class GeneralizedF1(Metric):
             binary_model = False
 
         if not binary_model:
+            # log.info(metric_config)
             predictions = self.preprocess(
                 predictions,
                 experiment_config=experiment_config,
@@ -48,7 +52,7 @@ class GeneralizedF1(Metric):
         else:
             threshold = metric_config.get("threshold", 0.5)
             predictions = predictions > threshold
+
         predictions = predictions.astype(bool)
-        # log.info(actuals.head())
-        # log.info(predictions.head())
+
         return {self.name: float(f1_score(actuals, predictions))}

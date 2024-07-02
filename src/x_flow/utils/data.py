@@ -6,7 +6,9 @@ from pathlib import Path
 from typing import Any, Optional, Union
 
 from kedro.io import AbstractDataset
+from kedro_datasets._typing import TablePreview
 import pandas as pd
+from pandas.api.types import is_datetime64_any_dtype as is_datetime
 
 
 @dataclass(kw_only=True)
@@ -17,7 +19,7 @@ class Data:
     date_partition_column: Optional[Union[str, list[datetime.datetime]]] = None
     partition_column: Optional[str] = None
     date_column: Optional[str] = None
-    date_format: str = "%Y-%m-%d"
+    date_format: str = None
 
     # @staticmethod
     # def from_file(filepath: Path, **kwargs) -> "Data":
@@ -44,9 +46,9 @@ class Data:
             df = df[list(columns)]
         if self.row_index is not None:
             df = df.iloc[self.row_index]
-        if self.date_column and df[self.date_column].dtype != "datetime64[ns]":
+        if self.date_column and not is_datetime(df[self.date_column]):
             df[self.date_column] = pd.to_datetime(df[self.date_column], format=self.date_format)
-        return df
+        return df.reset_index(drop=True)
 
     def get_date_partitions(self) -> dict[str, pd.DataFrame]:
         df = self.rendered_df
@@ -58,14 +60,15 @@ class Data:
             return {"__all__": df}
         elif isinstance(self.date_partition_column, str):
             return {
-                str(group): group_df for group, group_df in df.groupby(self.date_partition_column)
+                str(group): group_df.reset_index(drop=True)
+                for group, group_df in df.groupby(self.date_partition_column)
             }
         elif isinstance(self.date_partition_column, list):
             partition_dates = self.date_partition_column
             return {
                 start_date: df[
                     (df[self.date_column] >= start_date) & (df[self.date_column] <= end_date)
-                ]
+                ].reset_index(drop=True)
                 for start_date, end_date in zip(
                     [start_date] + partition_dates, partition_dates + [end_date]
                 )
@@ -75,7 +78,10 @@ class Data:
         df = self.rendered_df
         if self.partition_column is not None:
             return OrderedDict(
-                {str(group): group_df for group, group_df in df.groupby(self.partition_column)}
+                {
+                    str(group): group_df.reset_index(drop=True)
+                    for group, group_df in df.groupby(self.partition_column)
+                }
             )
         else:
             return OrderedDict({"__all_data__": df})
@@ -87,18 +93,15 @@ class TrainingData(Data):
 
 
 @dataclass(kw_only=True)
-class ValidationData(TrainingData):
-    ...
+class ValidationData(TrainingData): ...
 
 
 @dataclass(kw_only=True)
-class ValidationPredictionData(ValidationData):
-    ...
+class ValidationPredictionData(ValidationData): ...
 
 
 @dataclass(kw_only=True)
-class PredictionData(Data):
-    ...
+class PredictionData(Data): ...
 
 
 class_map: dict[str, type] = {
@@ -115,13 +118,17 @@ class XFlowDataset(AbstractDataset[Data, Data]):
         self._filepath = filepath
         self.kwargs = kwargs
         load_args = kwargs.get("load_args", {})
-        load_class = load_args.get("load_class", "Data")
+        self._load_args = load_args
+        load_class = load_args.pop("load_class", "Data")
         if load_class not in class_map:
             raise ValueError(f"load_class must be one of {list(class_map.keys())}")
         self.load_class = load_class
 
-    def _load(self, **kwargs: Any) -> Data:
-        df = pd.read_csv(Path(self._filepath))
+    def _load(self) -> Data:
+        # check if self._filepath is a directory:
+        if Path(self._filepath).is_dir():
+            self._filepath = Path(self._filepath) / "data.csv"  # type: ignore
+        df = pd.read_csv(Path(self._filepath), **self._load_args)
         with open(Path(self._filepath).parent / "metadata.json") as f:
             metadata = json.load(f)
         instance: Data = class_map[self.load_class](df=df, **metadata)
@@ -129,9 +136,14 @@ class XFlowDataset(AbstractDataset[Data, Data]):
 
     def _save(self, data: Data) -> None:
         Path(self._filepath).mkdir(parents=True, exist_ok=True)
-        data.df.to_csv(Path(self._filepath) / "data.csv", index=False)
         metadata = asdict(data)
         metadata.pop("df")
+
+        data.df.to_csv(
+            Path(self._filepath) / "data.csv",
+            index=False,
+            date_format=metadata.get("date_format", None),
+        )
         with open(Path(self._filepath) / "metadata.json", "w") as f:
             json.dump(metadata, f, default=str)
 
@@ -140,3 +152,9 @@ class XFlowDataset(AbstractDataset[Data, Data]):
             filepath=self._filepath,
             **self.kwargs,
         )
+
+    def preview(self, nrows=10) -> TablePreview:
+        dataset_copy = self._copy()
+        dataset_copy._load_args["nrows"] = nrows  # type: ignore[attr-defined]
+        data = dataset_copy.load().rendered_df
+        return data.to_dict(orient="split")
